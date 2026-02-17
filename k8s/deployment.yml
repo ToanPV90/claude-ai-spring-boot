@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claude-ai-spring-boot
+  labels:
+    app: claude-ai-spring-boot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: claude-ai-spring-boot
+  template:
+    metadata:
+      labels:
+        app: claude-ai-spring-boot
+    spec:
+      containers:
+      - name: app
+        image: claude-ai-spring-boot
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:postgresql://postgres:5432/persondb
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: password
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+          value: http://keycloak:8080/realms/personrealm
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5

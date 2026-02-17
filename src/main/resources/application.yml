@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: claude-ai-spring-boot
+  datasource:
+    url: jdbc:postgresql://postgres:5432/persondb
+    username: person
+    password: person123
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://keycloak:8080/realms/personrealm
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

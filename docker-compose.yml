@@ -1,0 +1,49 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: persondb
+      POSTGRES_USER: person
+      POSTGRES_PASSWORD: person123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U person -d persondb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/persondb
+      KC_DB_USERNAME: person
+      KC_DB_PASSWORD: person123
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command: start-dev
+    ports:
+      - "8180:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/persondb
+      SPRING_DATASOURCE_USERNAME: person
+      SPRING_DATASOURCE_PASSWORD: person123
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/personrealm
+    depends_on:
+      - postgres
+      - keycloak
+
+volumes:
+  postgres-data:

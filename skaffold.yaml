@@ -1,0 +1,17 @@
+apiVersion: skaffold/v4
+kind: Config
+metadata:
+  name: claude-ai-spring-boot
+build:
+  artifacts:
+  - image: claude-ai-spring-boot
+    jib:
+      project: pl.piomin.services:claude-ai-spring-boot
+manifests:
+  rawYaml:
+  - k8s/secret.yml
+  - k8s/postgres.yml
+  - k8s/deployment.yml
+  - k8s/service.yml
+deploy:
+  kubectl: {}
