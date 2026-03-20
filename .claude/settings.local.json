@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mvn:*)"
+      "Bash(mvn:*)",
+      "Bash(java:*)",
+      "Bash(/usr/libexec/java_home -V)",
+      "Bash(docker-compose up:*)",
+      "Bash(ls -1 *.yml *.yaml *.md Dockerfile)",
+      "Bash(pkill -f claude-ai-spring-boot)"
     ]
   }
 }

@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/persondb
+    username: postgres
+    password: postgres
+  jpa:
+    show-sql: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081/realms/master
+          jwk-set-uri: http://localhost:8081/realms/master/protocol/openid-connect/certs
+
+logging:
+  level:
+    pl.piomin.services: DEBUG

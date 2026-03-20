@@ -1,0 +1,16 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://mock-issuer
+          jwk-set-uri: http://mock-issuer/jwks
+
+logging:
+  level:
+    pl.piomin.services: DEBUG
+    org.springframework.security: DEBUG

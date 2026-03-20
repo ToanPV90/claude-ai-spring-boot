@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: person-service
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_batch_fetch_size: 10
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    pl.piomin.services: INFO
+    org.springframework.security: DEBUG
+
+server:
+  port: 8080
+  error:
+    include-message: always

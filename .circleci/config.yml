@@ -1,0 +1,50 @@
+version: 2.1
+
+orbs:
+  maven: circleci/maven@1.4
+
+workflows:
+  build-test-deploy:
+    jobs:
+      - build-and-test
+      - build-image:
+          requires:
+            - build-and-test
+
+jobs:
+  build-and-test:
+    docker:
+      - image: cimg/openjdk:21.0
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - maven-deps-v1-{{ checksum "pom.xml" }}
+            - maven-deps-v1-
+      - run:
+          name: Build and test
+          command: mvn clean verify
+      - save_cache:
+          paths:
+            - ~/.m2
+          key: maven-deps-v1-{{ checksum "pom.xml" }}
+      - store_test_results:
+          path: target/surefire-reports
+      - store_artifacts:
+          path: target/*.jar
+
+  build-image:
+    docker:
+      - image: cimg/openjdk:21.0
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: default
+      - run:
+          name: Build Docker image with Jib
+          command: mvn compile jib:dockerBuild
+      - run:
+          name: Save Docker image
+          command: docker save -o person-service.tar person-service:latest
+      - store_artifacts:
+          path: person-service.tar

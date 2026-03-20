@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: person-service-config
+  labels:
+    app: person-service
+data:
+  DB_URL: jdbc:postgresql://postgres:5432/persondb
+  JWT_ISSUER_URI: http://keycloak:8081/realms/master
