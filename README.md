@@ -2,7 +2,46 @@
 
 This template provides a structured starting point for Spring Boot applications, optimized for Claude AI's code completion capabilities. It includes essential configurations and best practices to streamline development and enhance productivity.
 
-The idea behind this template is that you can just clone this repository and use it to generate the app you want with Claude Code.
+## Quick Start
+
+**New project:**
+
+```bash
+npx create-claude-spring-boot my-project
+cd my-project
+claude .
+```
+
+**Existing project** (run inside your project directory):
+
+```bash
+cd my-existing-project
+npx create-claude-spring-boot
+claude .
+```
+
+The existing-project mode injects `.claude/` (agents + skills) into your project. It skips `pom.xml`, `CLAUDE.md`, and `AGENTS.md` if they already exist.
+
+**Install from GitHub (no npm publish needed):**
+
+```bash
+# One-time global install directly from GitHub
+npm install -g github:ToanPV90/claude-ai-spring-boot
+create-claude-spring-boot my-project
+
+# Or use npx directly from GitHub (no install step)
+npx github:ToanPV90/claude-ai-spring-boot my-project
+
+# Existing project — inject .claude/ into current directory
+npx github:ToanPV90/claude-ai-spring-boot
+```
+
+**Fully offline (after cloning the repo):**
+
+```bash
+git clone git@github.com:ToanPV90/claude-ai-spring-boot.git
+node claude-ai-spring-boot/bin/create.js my-project
+```
 
 ```shell
 .

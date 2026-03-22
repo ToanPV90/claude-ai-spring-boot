@@ -1,0 +1,17 @@
+{
+  "name": "create-claude-spring-boot",
+  "version": "1.0.0",
+  "description": "Scaffold a Spring Boot project with Claude AI agents and skills pre-configured",
+  "keywords": ["spring-boot", "claude", "scaffold", "template"],
+  "license": "MIT",
+  "bin": {
+    "create-claude-spring-boot": "bin/create.js"
+  },
+  "files": [
+    "bin/",
+    "template/"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

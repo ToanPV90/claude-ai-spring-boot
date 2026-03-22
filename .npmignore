@@ -1,0 +1,8 @@
+.git/
+.gitignore
+.claude/
+AGENTS.md
+CLAUDE.md
+pom.xml
+node_modules/
+npm-debug.log*
