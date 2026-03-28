@@ -102,14 +102,14 @@ public Converter<Jwt, Collection<GrantedAuthority>> keycloakGrantedAuthoritiesCo
 ## Extracting Current User from SecurityContext
 
 ```java
-@Component
+@Component("userContextHolder")
 public class UserContextHolder {
 
     public String getCurrentUserId() {
         return getJwt().getSubject();
     }
 
-    public String getCurrentUsername() {
+    public String getCurrentPreferredUsername() {
         return getJwt().getClaimAsString("preferred_username");
     }
 
@@ -135,6 +135,16 @@ public class UserContextHolder {
     }
 }
 ```
+
+## Ownership Checks and Principal Name Assumptions
+
+- In Spring Security resource-server flows, `JwtAuthenticationToken#getName()` defaults to the JWT `sub` claim.
+- That makes `authentication.name` usable for ownership checks **only if** the application keeps the default principal-name mapping.
+- Prefer explicit helper-based checks (`@userContextHolder.getCurrentUserId()`) when the codebase wants the ownership rule to stay tied to `sub` even if principal-name mapping changes later.
+- Do **not** compare resource ownership with `preferred_username` or `email`; treat them as presentation/login claims, not durable identifiers.
+
+Expose `preferred_username` only as a display/login convenience. Keep helper names
+explicit so the code does not accidentally present it as a durable principal ID.
 
 ## Method-Level Security Patterns
 
@@ -164,27 +174,29 @@ public class OrderController {
     }
 
     // IDOR prevention — user can only access their own resource
-    @PreAuthorize("#userId == authentication.name")
+    @PreAuthorize("#userId == @userContextHolder.getCurrentUserId()")
     @GetMapping("/users/{userId}/orders")
     public List<OrderResponse> getUserOrders(@PathVariable String userId) {
         return orderService.findByUserId(userId);
     }
 
     // Admin OR own resource
-    @PreAuthorize("hasRole('admin') or #userId == authentication.name")
+    @PreAuthorize("hasRole('admin') or #userId == @userContextHolder.getCurrentUserId()")
     @GetMapping("/users/{userId}/profile")
     public UserProfile getUserProfile(@PathVariable String userId) {
         return orderService.getProfile(userId);
     }
 
     // Filter response — only return if owner matches
-    @PostAuthorize("returnObject.ownerId == authentication.name")
+    @PostAuthorize("returnObject.ownerId == @userContextHolder.getCurrentUserId()")
     @GetMapping("/documents/{id}")
     public DocumentResponse getDocument(@PathVariable Long id) {
         return orderService.getDocument(id);
     }
 }
 ```
+
+If the application intentionally uses `authentication.name` for ownership checks, document that it still maps to `sub`. Do not leave that assumption implicit.
 
 ## Multi-Tenant (Multiple Realms)
 
@@ -227,3 +239,9 @@ public record ErrorResponse(int status, String message, Instant timestamp) {
 ```
 
 Wire in `SecurityFilterChain` via `.exceptionHandling(...)` as shown in the Full SecurityFilterChain section above.
+
+## Gotchas
+
+- `authentication.name` is only a safe ownership shortcut when the application intentionally keeps principal-name mapping aligned with JWT `sub`.
+- `preferred_username` and `email` are useful display/login claims, not durable database identity keys.
+- If controller or service rules depend on ownership, keep the helper naming explicit (`getCurrentUserId`) so future claim-mapping changes do not silently change authorization meaning.

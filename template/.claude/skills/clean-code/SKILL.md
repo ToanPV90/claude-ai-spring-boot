@@ -1,612 +1,143 @@
 ---
 name: clean-code
-description: Clean Code principles (DRY, KISS, YAGNI), naming conventions, function design, and refactoring. Use when user says "clean this code", "refactor", "improve readability", or when reviewing code quality.
+description: Readability-focused refactoring guidance for Java and Spring codebases. Use when simplifying complex code, improving naming, reducing duplication, shrinking large methods, or addressing maintainability issues without changing the overall architecture.
 license: MIT
 metadata:
   author: local
-  version: "1.0.0"
+  version: "1.1.0"
   domain: backend
-  triggers: clean code, refactor, DRY, KISS, YAGNI, naming, readability, code quality, code smells
+  triggers:
+    - clean code
+    - improve readability
+    - reduce duplication
+    - reduce complexity
+    - code smells
+    - naming
+    - long method
+    - magic numbers
+    - guard clauses
+    - maintainability
+    - simplify code
+    - refactor messy code
   role: guide
   scope: review
   output-format: code + guidance
-  related-skills: design-patterns, java-code-review
+  related-skills: request-refactor-plan, design-patterns, java-code-review
 ---
 
 # Clean Code Skill
 
-Write readable, maintainable code following Clean Code principles.
+Decision guide for simplifying code without smuggling in architecture churn or pattern cargo culting.
 
 ## When to Use
-- User says "clean this code" / "refactor" / "improve readability"
-- Code review focusing on maintainability
-- Reducing complexity
-- Improving naming
+- The user wants code to be easier to read, name, or maintain
+- A method, class, or conditional has become harder to follow than the behavior requires
+- There is obvious duplication, primitive obsession, magic numbers, or comment-driven code
+- A refactor should stay local and clarity-focused rather than become a broad redesign
 
----
+## When Not to Use
+- The user needs a rollout plan, staged migration, or tiny-commit refactor sequence — use `request-refactor-plan`
+- The main question is pattern selection or extension-model design — use `design-patterns`
+- The work is primarily architecture, module boundaries, or large Spring design tradeoffs — use `java-architect` or `spring-boot-patterns`
+- The task is a formal Java review pass rather than readability-first refactoring — use `java-code-review`
 
-## Core Principles
+## Reference Guide
 
-| Principle | Meaning | Violation Sign |
-|-----------|---------|----------------|
-| **DRY** | Don't Repeat Yourself | Copy-pasted code blocks |
-| **KISS** | Keep It Simple, Stupid | Over-engineered solutions |
-| **YAGNI** | You Aren't Gonna Need It | Features "just in case" |
+| Topic | Reference | Load When |
+|------|-----------|-----------|
+| DRY, KISS, YAGNI, Tell-Don't-Ask, Demeter | `references/principles.md` | Deciding which principle applies and what it really forbids |
+| Naming, method shape, parameters, comments | `references/readability.md` | Renaming, shrinking methods, removing flag arguments, or clarifying intent |
+| Smells, guard clauses, value objects, magic numbers | `references/smells-and-refactorings.md` | Mapping a smell to a safe cleanup move |
+| Review checklist and sequencing defaults | `references/review-workflow.md` | Running a maintainability review or deciding what to fix first |
+| Failure modes and over-refactoring risks | `references/gotchas.md` | Avoiding abstraction churn, false DRY, or cleanup that hides behavior |
 
----
+## Simplification Ladder
 
-## DRY - Don't Repeat Yourself
+1. **Can naming alone make this clearer?** Rename before extracting.
+2. **Is the method doing more than one thing?** Extract by behavior, not by line count.
+3. **Is duplication repeating knowledge or just structure?** Remove only the knowledge duplication.
+4. **Is a parameter list telling you a concept is missing?** Introduce a value object or request object.
+5. **Is a conditional hard to scan?** Try guard clauses or move behavior closer to the owning type.
+6. **Would a pattern make this clearer, or just more abstract?** Stop and switch to `design-patterns` only when the design pressure is real.
 
-> "Every piece of knowledge must have a single, unambiguous representation in the system."
+## Quick Mapping
 
-### Violation
+| Situation | Default Move | Prefer Instead Of |
+|-----------|--------------|-------------------|
+| Long method mixing responsibilities | Extract focused methods | One giant "process" method |
+| Poor names hiding intent | Rename variables, methods, and types | Adding comments to explain bad names |
+| Repeated business rule in multiple places | Extract one source of truth | Copy-paste with tiny wording changes |
+| Too many primitive parameters | Introduce a parameter or value object | Eight-argument methods |
+| Nested conditionals | Guard clauses or polymorphic dispatch when justified | Deep indentation |
+| Magic literals | Named constants or domain types | Repeating unexplained numbers or strings |
 
+## Constraints
+
+### MUST DO
+
+| Rule | Preferred Move |
+|------|----------------|
+| Start with the smallest clarity improvement that changes the least behavior | Rename, extract, inline, delete |
+| Keep the domain language visible | Names should reflect business meaning, not implementation trivia |
+| Remove duplication of knowledge, not merely similar syntax | Shared rule yes; coincidental shape no |
+| Keep methods and classes at one level of abstraction | Separate orchestration from detail |
+| Delete dead code when it is truly dead | Fewer branches beat speculative reuse |
+
+### MUST NOT DO
+- Do not replace simple code with a pattern just to look more "clean"
+- Do not chase DRY so hard that unrelated behaviors get welded together
+- Do not hide domain logic behind vague names like `process`, `handle`, `manager`, or `utils`
+- Do not preserve bad structure with comments when a rename or extraction would remove the confusion
+- Do not balloon a local cleanup into architecture work unless the user asked for that scope
+
+## Gotchas
+
+- False DRY is one of the most common clean-code mistakes: similar-looking code may represent different business rules.
+- "Clean" abstractions that force callers through helpers, wrappers, or generic base classes can be less readable than the duplication they removed.
+- A short method is not automatically a clear method; over-extraction can destroy flow.
+- Comments often survive longer than the code they explain. Prefer names and structure first, comments for why/constraints only.
+- Utility classes and boolean flag arguments often look harmless at first and then become dumping grounds.
+
+## Minimal Examples
+
+### Rename and extract before redesign
 ```java
-// ❌ BAD: Same validation logic repeated
-public class UserController {
-
-    public void createUser(UserRequest request) {
-        if (request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new ValidationException("Email is required");
-        }
-        if (!request.getEmail().contains("@")) {
-            throw new ValidationException("Invalid email format");
-        }
-        // ... create user
+public void process(Order order) {
+    if (order == null) {
+        return;
     }
 
-    public void updateUser(UserRequest request) {
-        if (request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new ValidationException("Email is required");
-        }
-        if (!request.getEmail().contains("@")) {
-            throw new ValidationException("Invalid email format");
-        }
-        // ... update user
-    }
-}
-```
-
-### Refactored
-
-```java
-// ✅ GOOD: Single source of truth
-public class EmailValidator {
-
-    public void validate(String email) {
-        if (email == null || email.isBlank()) {
-            throw new ValidationException("Email is required");
-        }
-        if (!email.contains("@")) {
-            throw new ValidationException("Invalid email format");
-        }
-    }
-}
-
-public class UserController {
-    private final EmailValidator emailValidator;
-
-    public void createUser(UserRequest request) {
-        emailValidator.validate(request.getEmail());
-        // ... create user
-    }
-
-    public void updateUser(UserRequest request) {
-        emailValidator.validate(request.getEmail());
-        // ... update user
-    }
-}
-```
-
-### DRY Exceptions
-
-Not all duplication is bad. Avoid premature abstraction:
-
-```java
-// These look similar but serve different purposes - OK to duplicate
-public BigDecimal calculateShippingCost(Order order) {
-    return order.getWeight().multiply(SHIPPING_RATE);
-}
-
-public BigDecimal calculateInsuranceCost(Order order) {
-    return order.getValue().multiply(INSURANCE_RATE);
-}
-// Don't force these into one method - they'll evolve differently
-```
-
----
-
-## KISS - Keep It Simple
-
-> "The simplest solution is usually the best."
-
-### Violation
-
-```java
-// ❌ BAD: Over-engineered for simple task
-public class StringUtils {
-
-    public boolean isEmpty(String str) {
-        return Optional.ofNullable(str)
-            .map(String::trim)
-            .map(String::isEmpty)
-            .orElseGet(() -> Boolean.TRUE);
-    }
-}
-```
-
-### Refactored
-
-```java
-// ✅ GOOD: Simple and clear
-public class StringUtils {
-
-    public boolean isEmpty(String str) {
-        return str == null || str.trim().isEmpty();
-    }
-
-    // Or use existing library
-    // return StringUtils.isBlank(str);  // Apache Commons
-    // return str == null || str.isBlank();  // Java 11+
-}
-```
-
-### KISS Checklist
-
-- Can a junior developer understand this in 30 seconds?
-- Is there a simpler way using standard libraries?
-- Am I adding complexity for edge cases that may never happen?
-
----
-
-## YAGNI - You Aren't Gonna Need It
-
-> "Don't add functionality until it's necessary."
-
-### Violation
-
-```java
-// ❌ BAD: Building for hypothetical future
-public interface Repository<T, ID> {
-    T findById(ID id);
-    List<T> findAll();
-    List<T> findAll(Pageable pageable);
-    List<T> findAll(Sort sort);
-    List<T> findAllById(Iterable<ID> ids);
-    T save(T entity);
-    List<T> saveAll(Iterable<T> entities);
-    void delete(T entity);
-    void deleteById(ID id);
-    void deleteAll(Iterable<T> entities);
-    void deleteAll();
-    boolean existsById(ID id);
-    long count();
-    // ... 20 more methods "just in case"
-}
-
-// Current usage: only findById and save
-```
-
-### Refactored
-
-```java
-// ✅ GOOD: Only what's needed now
-public interface UserRepository {
-    Optional<User> findById(Long id);
-    User save(User user);
-}
-
-// Add methods when actually needed, not before
-```
-
-### YAGNI Signs
-
-- "We might need this later"
-- "Let's make it configurable just in case"
-- "What if we need to support X in the future?"
-- Abstract classes with one implementation
-
----
-
-## Naming Conventions
-
-### Variables
-
-```java
-// ❌ BAD
-int d;                  // What is d?
-String s;               // Meaningless
-List<User> list;        // What kind of list?
-Map<String, Object> m;  // What does it map?
-
-// ✅ GOOD
-int elapsedTimeInDays;
-String customerName;
-List<User> activeUsers;
-Map<String, Object> sessionAttributes;
-```
-
-### Booleans
-
-```java
-// ❌ BAD
-boolean flag;
-boolean status;
-boolean check;
-
-// ✅ GOOD - Use is/has/can/should prefix
-boolean isActive;
-boolean hasPermission;
-boolean canEdit;
-boolean shouldNotify;
-```
-
-### Methods
-
-```java
-// ❌ BAD
-void process();           // Process what?
-void handle();            // Handle what?
-void doIt();              // Do what?
-User get();               // Get from where?
-
-// ✅ GOOD - Verb + noun, descriptive
-void processPayment();
-void handleLoginRequest();
-void sendWelcomeEmail();
-User findByEmail(String email);
-List<Order> fetchPendingOrders();
-```
-
-### Classes
-
-```java
-// ❌ BAD
-class Data { }           // Too vague
-class Info { }           // Too vague
-class Manager { }        // Often a god class
-class Helper { }         // Often a dumping ground
-class Utils { }          // Static method dumping ground
-
-// ✅ GOOD - Noun, specific responsibility
-class User { }
-class OrderProcessor { }
-class EmailValidator { }
-class PaymentGateway { }
-class ShippingCalculator { }
-```
-
-### Naming Conventions Table
-
-| Element | Convention | Example |
-|---------|------------|---------|
-| Class | PascalCase, noun | `OrderService` |
-| Interface | PascalCase, adjective or noun | `Comparable`, `List` |
-| Method | camelCase, verb | `calculateTotal()` |
-| Variable | camelCase, noun | `customerEmail` |
-| Constant | UPPER_SNAKE | `MAX_RETRY_COUNT` |
-| Package | lowercase | `com.example.orders` |
-
----
-
-## Functions / Methods
-
-### Keep Functions Small
-
-```java
-// ❌ BAD: 50+ line method doing multiple things
-public void processOrder(Order order) {
-    // validate order (10 lines)
-    // calculate totals (15 lines)
-    // apply discounts (10 lines)
-    // update inventory (10 lines)
-    // send notifications (10 lines)
-    // ... and more
-}
-
-// ✅ GOOD: Small, focused methods
-public void processOrder(Order order) {
-    validateOrder(order);
+    validate(order);
     calculateTotals(order);
-    applyDiscounts(order);
-    updateInventory(order);
-    sendNotifications(order);
-}
-```
-
-### Single Level of Abstraction
-
-```java
-// ❌ BAD: Mixed abstraction levels
-public void processOrder(Order order) {
-    validateOrder(order);  // High level
-
-    // Low level mixed in
-    BigDecimal total = BigDecimal.ZERO;
-    for (OrderItem item : order.getItems()) {
-        total = total.add(item.getPrice().multiply(
-            BigDecimal.valueOf(item.getQuantity())));
-    }
-
-    sendEmail(order);  // High level again
-}
-
-// ✅ GOOD: Consistent abstraction level
-public void processOrder(Order order) {
-    validateOrder(order);
-    calculateTotal(order);
     sendConfirmation(order);
 }
-
-private BigDecimal calculateTotal(Order order) {
-    return order.getItems().stream()
-        .map(item -> item.getPrice().multiply(
-            BigDecimal.valueOf(item.getQuantity())))
-        .reduce(BigDecimal.ZERO, BigDecimal::add);
-}
 ```
 
-### Limit Parameters
-
+### Replace primitive obsession with a value object
 ```java
-// ❌ BAD: Too many parameters
-public User createUser(String firstName, String lastName,
-                       String email, String phone,
-                       String address, String city,
-                       String country, String zipCode) {
-    // ...
-}
-
-// ✅ GOOD: Use parameter object
-public User createUser(CreateUserRequest request) {
-    // ...
-}
-
-// Or builder
-public User createUser(UserBuilder builder) {
-    // ...
-}
-```
-
-### Avoid Flag Arguments
-
-```java
-// ❌ BAD: Boolean flag changes behavior
-public void sendMessage(String message, boolean isUrgent) {
-    if (isUrgent) {
-        // send immediately
-    } else {
-        // queue for later
-    }
-}
-
-// ✅ GOOD: Separate methods
-public void sendUrgentMessage(String message) {
-    // send immediately
-}
-
-public void queueMessage(String message) {
-    // queue for later
-}
-```
-
----
-
-## Comments
-
-### Avoid Obvious Comments
-
-```java
-// ❌ BAD: Noise comments
-// Set the user's name
-user.setName(name);
-
-// Increment counter
-counter++;
-
-// Check if user is null
-if (user != null) {
-    // ...
-}
-```
-
-### Good Comments
-
-```java
-// ✅ GOOD: Explain WHY, not WHAT
-
-// Retry with exponential backoff to avoid overwhelming the server
-// during high load periods (see incident #1234)
-for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    Thread.sleep((long) Math.pow(2, attempt) * 1000);
-    // ...
-}
-
-// TODO: Replace with Redis cache after infrastructure upgrade (Q2 2026)
-private Map<String, User> userCache = new ConcurrentHashMap<>();
-
-// WARNING: Order matters! Discounts must be applied before tax calculation
-applyDiscounts(order);
-calculateTax(order);
-```
-
-### Let Code Speak
-
-```java
-// ❌ BAD: Comment explaining bad code
-// Check if the user is an admin or has special permission
-// and the action is allowed for their role
-if ((user.getRole() == 1 || user.getRole() == 2) &&
-    (action == 3 || action == 4 || action == 7)) {
-    // ...
-}
-
-// ✅ GOOD: Self-documenting code
-if (user.hasAdminPrivileges() && action.isAllowedFor(user.getRole())) {
-    // ...
-}
-```
-
----
-
-## Common Code Smells
-
-| Smell | Description | Refactoring |
-|-------|-------------|-------------|
-| **Long Method** | Method > 20 lines | Extract Method |
-| **Long Parameter List** | > 3 parameters | Parameter Object |
-| **Duplicate Code** | Same code in multiple places | Extract Method/Class |
-| **Dead Code** | Unused code | Delete it |
-| **Magic Numbers** | Unexplained literals | Named Constants |
-| **God Class** | Class doing too much | Extract Class |
-| **Feature Envy** | Method uses another class's data | Move Method |
-| **Primitive Obsession** | Primitives instead of objects | Value Objects |
-
-### Magic Numbers
-
-```java
-// ❌ BAD
-if (user.getAge() >= 18) { }
-if (order.getTotal() > 100) { }
-Thread.sleep(86400000);
-
-// ✅ GOOD
-private static final int ADULT_AGE = 18;
-private static final BigDecimal FREE_SHIPPING_THRESHOLD = new BigDecimal("100");
-private static final long ONE_DAY_MS = TimeUnit.DAYS.toMillis(1);
-
-if (user.getAge() >= ADULT_AGE) { }
-if (order.getTotal().compareTo(FREE_SHIPPING_THRESHOLD) > 0) { }
-Thread.sleep(ONE_DAY_MS);
-```
-
-### Primitive Obsession
-
-```java
-// ❌ BAD: Primitives everywhere
-public void createUser(String email, String phone, String zipCode) {
-    // No validation, easy to mix up parameters
-}
-
-createUser("12345", "john@email.com", "555-1234");  // Wrong order, compiles!
-
-// ✅ GOOD: Value objects
-public record Email(String value) {
-    public Email {
-        if (!value.contains("@")) {
+public record EmailAddress(String value) {
+    public EmailAddress {
+        if (value == null || !value.contains("@")) {
             throw new IllegalArgumentException("Invalid email");
         }
     }
 }
 
-public record PhoneNumber(String value) {
-    // validation
-}
-
-public void createUser(Email email, PhoneNumber phone, ZipCode zipCode) {
-    // Type-safe, self-validating
+public void register(EmailAddress emailAddress) {
+    // business logic
 }
 ```
 
----
+## What to Verify
+- The refactor made the code easier to read without widening scope unnecessarily
+- Names now carry domain meaning without comment support
+- The extracted abstraction is smaller and clearer than the original duplication
+- Tests still describe behavior rather than helper structure
+- No architecture or pattern churn was introduced accidentally
 
-## Refactoring Quick Reference
-
-| From | To | Technique |
-|------|-----|-----------|
-| Long method | Short methods | Extract Method |
-| Duplicate code | Single method | Extract Method |
-| Complex conditional | Polymorphism | Replace Conditional with Polymorphism |
-| Many parameters | Object | Introduce Parameter Object |
-| Temp variables | Query method | Replace Temp with Query |
-| Comments explaining code | Self-documenting code | Rename, Extract |
-| Nested conditionals | Early return | Guard Clauses |
-
-### Guard Clauses
-
-```java
-// ❌ BAD: Deeply nested
-public void processOrder(Order order) {
-    if (order != null) {
-        if (order.isValid()) {
-            if (order.hasItems()) {
-                // actual logic buried here
-            }
-        }
-    }
-}
-
-// ✅ GOOD: Guard clauses
-public void processOrder(Order order) {
-    if (order == null) return;
-    if (!order.isValid()) return;
-    if (!order.hasItems()) return;
-
-    // actual logic at top level
-}
-```
-
----
-
-## Clean Code Checklist
-
-When reviewing code, check:
-
-- [ ] Are names meaningful and pronounceable?
-- [ ] Are functions small and focused?
-- [ ] Is there any duplicated code?
-- [ ] Are there magic numbers or strings?
-- [ ] Are comments explaining "why" not "what"?
-- [ ] Is the code at consistent abstraction level?
-- [ ] Can any code be simplified?
-- [ ] Is there dead/unused code?
-
----
-
-## Tell, Don't Ask
-
-```java
-// ❌ BAD: Asking for data, then acting on it
-if (account.getBalance().compareTo(amount) >= 0) {
-    account.setBalance(account.getBalance().subtract(amount));
-}
-
-// ✅ GOOD: Tell the object what to do
-account.withdraw(amount);  // Encapsulates validation + logic
-```
-
-## Law of Demeter
-
-```java
-// ❌ BAD: Train wreck — reaching through objects
-String city = order.getCustomer().getAddress().getCity();
-
-// ✅ GOOD: Delegate
-String city = order.getShippingCity();
-// Order delegates to Customer, Customer delegates to Address
-```
-
-## Immutability by Default
-
-```java
-// ✅ Prefer records for value objects (Java 16+)
-public record Money(BigDecimal amount, Currency currency) {
-    public Money add(Money other) {
-        if (!this.currency.equals(other.currency)) {
-            throw new IllegalArgumentException("Currency mismatch");
-        }
-        return new Money(this.amount.add(other.amount), this.currency);
-    }
-}
-
-// ✅ Use unmodifiable collections
-List<String> names = List.of("Alice", "Bob");          // Immutable
-List<String> copy = List.copyOf(mutableList);           // Defensive copy
-Map<String, Integer> scores = Map.of("Alice", 100);    // Immutable
-```
-
-## Related Skills
-
-- `solid-principles` - Design principles for class structure
-- `design-patterns` - Common solutions to recurring problems
-- `java-code-review` - Comprehensive review checklist
+## See References
+- `references/principles.md` for DRY, KISS, YAGNI, Tell-Don't-Ask, and Demeter
+- `references/readability.md` for naming, method shape, parameters, and comments
+- `references/smells-and-refactorings.md` for smell-to-refactoring guidance
+- `references/review-workflow.md` for maintainability review order and triage
+- `references/gotchas.md` for failure modes during cleanup

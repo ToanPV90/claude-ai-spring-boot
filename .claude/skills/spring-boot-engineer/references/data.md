@@ -2,6 +2,8 @@
 
 ## JPA Entity Pattern
 
+If the question becomes PostgreSQL-first schema design (types, indexes, `timestamptz`, JSONB, partitioning), route to `postgres-master`.
+
 ```java
 @Entity
 @Table(name = "users", indexes = {
@@ -27,6 +29,9 @@ public class User {
     @Column(nullable = false)
     private Boolean active = true;
 
+    @Column
+    private Instant lastLoginAt;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Address> addresses = new ArrayList<>();
 
@@ -40,11 +45,11 @@ public class User {
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @LastModifiedDate
     @Column(nullable = false)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @Version
     private Long version;
@@ -52,7 +57,7 @@ public class User {
     public User() {}
 
     // getters and setters omitted for brevity
-    // builder pattern omitted for brevity — see design-patterns skill
+    // explicit constructors/getters/setters omitted for brevity — this repo does not assume Lombok
 
     // Helper methods for bidirectional relationships
     public void addAddress(Address address) {
@@ -86,11 +91,11 @@ public interface UserRepository extends JpaRepository<User, Long>,
     Optional<User> findByEmailWithRoles(@Param("email") String email);
 
     @Query("SELECT u FROM User u WHERE u.active = true AND u.createdAt >= :since")
-    List<User> findActiveUsersSince(@Param("since") LocalDateTime since);
+    List<User> findActiveUsersSince(@Param("since") Instant since);
 
     @Modifying
     @Query("UPDATE User u SET u.active = false WHERE u.lastLoginAt < :threshold")
-    int deactivateInactiveUsers(@Param("threshold") LocalDateTime threshold);
+    int deactivateInactiveUsers(@Param("threshold") Instant threshold);
 
     // Projection for read-only DTOs
     @Query("SELECT new com.example.dto.UserSummary(u.id, u.username, u.email) " +
@@ -100,6 +105,9 @@ public interface UserRepository extends JpaRepository<User, Long>,
 ```
 
 ## Repository with Specifications
+
+For deep JPA `Specification`, fetch-tuning, and projection tradeoffs, route to `jpa-patterns`.
+If the query stays entity-centric but projections and dynamic filters become awkward together, route to `blaze-persistence`.
 
 ```java
 public class UserSpecifications {
@@ -114,6 +122,10 @@ public class UserSpecifications {
     }
 
     public static Specification<User> createdAfter(LocalDateTime date) {
+        return createdAfter(date == null ? null : date.toInstant(ZoneOffset.UTC));
+    }
+
+    public static Specification<User> createdAfter(Instant date) {
         return (root, query, cb) ->
             date == null ? null : cb.greaterThanOrEqualTo(root.get("createdAt"), date);
     }
@@ -152,14 +164,23 @@ public class UserService {
 @Service
 @Transactional(readOnly = true)
 public class OrderService {
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
+
     private final OrderRepository orderRepository;
+    private final OrderEventRepository orderEventRepository;
     private final PaymentService paymentService;
     private final InventoryService inventoryService;
     private final NotificationService notificationService;
 
-    public OrderService(OrderRepository orderRepository, PaymentService paymentService,
-                        InventoryService inventoryService, NotificationService notificationService) {
+    public OrderService(
+        OrderRepository orderRepository,
+        OrderEventRepository orderEventRepository,
+        PaymentService paymentService,
+        InventoryService inventoryService,
+        NotificationService notificationService
+    ) {
         this.orderRepository = orderRepository;
+        this.orderEventRepository = orderEventRepository;
         this.paymentService = paymentService;
         this.inventoryService = inventoryService;
         this.notificationService = notificationService;
@@ -167,11 +188,9 @@ public class OrderService {
 
     @Transactional
     public Order createOrder(OrderCreateRequest request) {
-        // All operations in single transaction
-        Order order = Order.builder()
-            .customerId(request.customerId())
-            .status(OrderStatus.PENDING)
-            .build();
+        Order order = new Order();
+        order.setCustomerId(request.customerId());
+        order.setStatus(OrderStatus.PENDING);
 
         request.items().forEach(item -> {
             inventoryService.reserveStock(item.productId(), item.quantity());
@@ -247,7 +266,7 @@ public abstract class AuditableEntity {
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @CreatedBy
     @Column(nullable = false, updatable = false, length = 100)
@@ -255,7 +274,7 @@ public abstract class AuditableEntity {
 
     @LastModifiedDate
     @Column(nullable = false)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @LastModifiedBy
     @Column(nullable = false, length = 100)
@@ -263,7 +282,13 @@ public abstract class AuditableEntity {
 }
 ```
 
+If the application uses a JWT resource server or Keycloak, route principal-name / `sub` semantics to `keycloak-patterns` instead of assuming `authentication.getName()` means email or username.
+
+If the audit fields model timestamps that cross process or timezone boundaries, prefer `Instant` at the entity/base-class level and convert for presentation later.
+
 ## Projections
+
+For projection strategy depth, use `jpa-patterns` first. If the endpoint needs entity-centric read models that outgrow constructor expressions or interface projections, use `blaze-persistence`.
 
 ```java
 // Interface-based projection
@@ -297,40 +322,14 @@ List<UserSummaryDto> dtos = userRepository.findAllBy(UserSummaryDto.class);
 
 ## Query Optimization
 
+This section only shows Spring Boot implementation examples. For deep fetch-shaping, paging caveats, and specialist query-design tradeoffs, route to `jpa-patterns` and `blaze-persistence`.
+
 ```java
-@Service
-@Transactional(readOnly = true)
-public class UserQueryService {
-    private final UserRepository userRepository;
-    private final EntityManager entityManager;
+public interface UserRepository extends JpaRepository<User, Long> {
 
-    public UserQueryService(UserRepository userRepository, EntityManager entityManager) {
-        this.userRepository = userRepository;
-        this.entityManager = entityManager;
-    }
-
-    // N+1 problem solved with JOIN FETCH
-    @Query("SELECT DISTINCT u FROM User u " +
-           "LEFT JOIN FETCH u.addresses " +
-           "LEFT JOIN FETCH u.roles " +
-           "WHERE u.active = true")
-    List<User> findAllActiveWithAssociations();
-
-    // Batch fetching
-    @BatchSize(size = 25)
-    @OneToMany(mappedBy = "user")
-    private List<Order> orders;
-
-    // EntityGraph for dynamic fetching
     @EntityGraph(attributePaths = {"addresses", "roles"})
     List<User> findAllByActiveTrue();
 
-    // Pagination to avoid loading all data
-    public Page<User> findAllUsers(Pageable pageable) {
-        return userRepository.findAll(pageable);
-    }
-
-    // Native query for complex queries
     @Query(value = """
         SELECT u.* FROM users u
         INNER JOIN orders o ON u.id = o.user_id
@@ -338,23 +337,47 @@ public class UserQueryService {
         GROUP BY u.id
         HAVING COUNT(o.id) >= :minOrders
         """, nativeQuery = true)
-    List<User> findFrequentBuyers(@Param("since") LocalDateTime since,
+    List<User> findFrequentBuyers(@Param("since") Instant since,
                                   @Param("minOrders") int minOrders);
+}
+
+@Service
+@Transactional(readOnly = true)
+public class UserQueryService {
+    private final UserRepository userRepository;
+
+    public UserQueryService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    public Page<User> findAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable);
+    }
+
+    public List<User> findActiveUsersWithAssociations() {
+        return userRepository.findAllByActiveTrue();
+    }
+
+    public List<User> findFrequentBuyers(Instant since, int minOrders) {
+        return userRepository.findFrequentBuyers(since, minOrders);
+    }
 }
 ```
 
 ## Database Migrations (Flyway)
 
+For PostgreSQL schema/index/type decisions, use `postgres-master`. Keep this section as implementation-oriented examples, not the source of truth for database design policy.
+
 ```sql
 -- V1__create_users_table.sql
 CREATE TABLE users (
-    id BIGSERIAL PRIMARY KEY,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    password VARCHAR(100) NOT NULL,
-    username VARCHAR(50) NOT NULL UNIQUE,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    username TEXT NOT NULL UNIQUE,
     active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     version BIGINT NOT NULL DEFAULT 0
 );
 
@@ -364,12 +387,12 @@ CREATE INDEX idx_users_active ON users(active);
 
 -- V2__create_addresses_table.sql
 CREATE TABLE addresses (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    street VARCHAR(200) NOT NULL,
-    city VARCHAR(100) NOT NULL,
-    country VARCHAR(2) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    street TEXT NOT NULL,
+    city TEXT NOT NULL,
+    country CHAR(2) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_addresses_user_id ON addresses(user_id);
@@ -392,3 +415,9 @@ CREATE INDEX idx_addresses_user_id ON addresses(user_id);
 | `@Modifying` | Marks query as UPDATE/DELETE |
 | `@EntityGraph` | Defines fetch graph for associations |
 | `@Version` | Optimistic locking version field |
+
+## Gotchas
+
+- Keep entity examples internally consistent: if a query references a field like `lastLoginAt`, the entity should actually declare it.
+- In this repo, PostgreSQL design defaults (`TEXT`, `TIMESTAMPTZ`, identity columns, index policy) belong to `postgres-master`; do not let implementation examples quietly redefine them.
+- Service examples should be copy-safe: declare collaborators like repositories and loggers explicitly instead of implying hidden fields or Lombok builders.

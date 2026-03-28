@@ -99,6 +99,12 @@ void adminEndpoint_withAdminRole_returns200() throws Exception {
 
 > Always prefer `jwt()` when controllers or services call `jwt.getClaimAsString(...)`, `jwt.getSubject()`, or use `UserContextHolder`.
 
+## Ownership Tests: Prefer `sub`, Not Display Claims
+
+- Build ownership-sensitive tests around `jwt().jwt(b -> b.subject("user-123"))`.
+- Only rely on `authentication.name` in assertions or `@PreAuthorize` expressions if the application deliberately keeps principal-name mapping equal to `sub`.
+- Do not use `preferred_username` or `email` as the ownership identifier in tests unless the application explicitly models that choice and documents its tradeoffs.
+
 ## Security Test Configuration
 
 When `@WebMvcTest` cannot load the full `SecurityFilterChain` (e.g., beans not in the slice), override with a test configuration:
@@ -129,12 +135,18 @@ class ProductControllerTest { ... }
 
 Use when you need real token issuance and complete OAuth2 flows.
 
-**Dependency:**
+**Dependencies:**
 ```xml
 <dependency>
     <groupId>com.github.dasniko</groupId>
     <artifactId>testcontainers-keycloak</artifactId>
     <version>3.3.1</version>
+    <scope>test</scope>
+</dependency>
+
+<dependency>
+    <groupId>io.rest-assured</groupId>
+    <artifactId>rest-assured</artifactId>
     <scope>test</scope>
 </dependency>
 ```
@@ -287,7 +299,9 @@ void getUserOrders_adminCanAccessAnyUser_returns200() throws Exception {
 }
 ```
 
-The controller uses `@PreAuthorize("hasRole('admin') or #userId == authentication.name")` to enforce this.
+The safest controller form is `@PreAuthorize("hasRole('admin') or #userId == @userContextHolder.getCurrentUserId()")` so the ownership rule stays bound to `sub` even if principal-name mapping changes later.
+
+If a codebase intentionally uses `authentication.name` here, add a test that proves the principal name still equals the JWT `sub` for the chosen converter/configuration.
 
 ## Quick Reference
 

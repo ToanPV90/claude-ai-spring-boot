@@ -11,6 +11,9 @@
     "bin/",
     "template/"
   ],
+  "scripts": {
+    "verify:skills": "node scripts/verify-skills.js"
+  },
   "engines": {
     "node": ">=18"
   }

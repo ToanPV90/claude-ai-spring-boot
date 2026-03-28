@@ -1,660 +1,146 @@
 ---
 name: logging-patterns
-description: Java logging best practices with SLF4J, structured logging (JSON), and MDC for request tracing. Includes AI-friendly log formats for Claude Code debugging. Use when user asks about logging, debugging application flow, or analyzing logs.
+description: Structured logging guidance for Java and Spring applications using SLF4J, JSON logs, MDC, and boundary-level exception logging. Use when improving logs, adding correlation IDs, making logs easier to debug, or deciding what should and should not be logged.
+license: MIT
+metadata:
+  author: local
+  version: "1.1.0"
+  domain: backend
+  triggers:
+    - logging
+    - structured logging
+    - JSON logs
+    - SLF4J
+    - MDC
+    - correlation ID
+    - request tracing
+    - analyze logs
+    - improve logs
+    - exception logging
+    - log levels
+    - sensitive data in logs
+  role: specialist
+  scope: implementation
+  output-format: code + guidance
+  related-skills: spring-boot-patterns, spring-boot-engineer, kafka-patterns, jpa-patterns
 ---
 
 # Logging Patterns Skill
 
-Effective logging for Java applications with focus on structured, AI-parsable formats.
+Decision guide for making application logs structured, traceable, and safe without drifting into full observability architecture.
 
 ## When to Use
-- User says "add logging" / "improve logs" / "debug this"
-- Analyzing application flow from logs
-- Setting up structured logging (JSON)
-- Request tracing with correlation IDs
-- AI/Claude Code needs to analyze application behavior
+- The user wants to add logging, improve log quality, or make logs easier to debug
+- The application needs structured JSON logs, request correlation IDs, or better boundary logging
+- You need to decide what should be logged at INFO/WARN/ERROR/DEBUG and what must never be logged
+- Claude or another tool needs logs that are easy to parse and trace through a request flow
 
----
+## When Not to Use
+- The task is general debugging with no logging change required
+- The main problem is distributed tracing, spans, or Micrometer observation design — use `spring-boot-engineer`
+- The task is Kafka-specific header propagation or consumer/producer correlation behavior — use `kafka-patterns`
+- The task is SQL/query analysis rather than application logging — use `jpa-patterns`
 
-## AI-Friendly Logging
+## Reference Guide
 
-> **Key insight:** JSON logs are better for AI analysis - faster parsing, fewer tokens, direct field access.
+| Topic | Reference | Load When |
+|------|-----------|-----------|
+| JSON logging setup, Spring Boot 3.4+, Logback fallback | `references/structured-logging-setup.md` | Configuring structured output or switching between machine and human-readable logs |
+| SLF4J declaration, parameterized logging, level choices | `references/slf4j-and-levels.md` | Adding log statements or choosing between INFO/WARN/ERROR/DEBUG |
+| MDC request context and async propagation | `references/mdc-and-context.md` | Adding request IDs, user IDs, or keeping context across async work |
+| What to log, what not to log, exception boundaries, AI log analysis | `references/logging-decisions.md` | Deciding event shape, safe fields, and boundary logging strategy |
+| Failure modes and scope boundaries | `references/gotchas.md` | Avoiding duplicate exception logs, leaked secrets, or tracing scope creep |
 
-### Why JSON for AI/Claude Code?
+## Symptom Triage
 
-```
-# Text format - AI must "interpret" the string
-2026-01-29 10:15:30 INFO OrderService - Order 12345 created for user-789, total: 99.99
+| Symptom | Default Check | Likely Fix |
+|--------|---------------|------------|
+| Logs are hard to filter or correlate | Are logs plain text without stable fields? | Enable structured JSON logging |
+| Request flow is hard to follow | Is there no requestId/correlationId in MDC? | Add request filter + MDC population |
+| Async logs lose request context | Is MDC copied into async execution? | Capture and restore MDC context map |
+| Errors appear multiple times | Are exceptions logged in several layers? | Log once at the application boundary |
+| Logs expose secrets or PII | Are raw tokens/passwords/card data logged? | Replace with safe identifiers or redacted fields |
 
-# JSON format - AI extracts fields directly
-{"timestamp":"2026-01-29T10:15:30Z","level":"INFO","orderId":12345,"userId":"user-789","total":99.99}
-```
+## Logging Decision Ladder
 
-| Aspect | Text | JSON |
-|--------|------|------|
-| Parsing | Regex/interpretation | Direct field access |
-| Token usage | Higher (repeated patterns) | Lower (structured) |
-| Error extraction | Parse stack trace text | `exception` field |
-| Filtering | grep patterns | `jq` queries |
+1. **Do you need machine-readable logs?** Prefer structured JSON.
+2. **Do you need to follow a request or workflow?** Add MDC-backed request or correlation IDs.
+3. **Are you deciding whether to log something?** Keep business events, failures, and timings; drop secrets and noise.
+4. **Are exceptions being logged in multiple layers?** Move full logging to the outer boundary.
+5. **Is the problem really tracing or cross-service propagation?** Route to `spring-boot-engineer` or `kafka-patterns`.
 
-### Recommended Setup for AI-Assisted Development
+## Quick Mapping
 
-```yaml
-# application.yml - JSON by default
-logging:
-  structured:
-    format:
-      console: logstash  # Spring Boot 3.4+
+| Situation | Default Move | Prefer Instead Of |
+|-----------|--------------|-------------------|
+| Need grep/jq-friendly logs | JSON structured logging | Free-form text messages |
+| Need request correlation | MDC with requestId/correlationId | Passing IDs manually through every log call |
+| Need useful failure logs | Log once at the boundary with context | Re-logging the same exception in every layer |
+| Need performance hints | Include `duration_ms` and `step` fields | Narrative log text with no stable metrics |
+| Need safe audit trail | Log identifiers and state transitions | Logging secrets, tokens, or full payloads |
 
-# When YOU need to read logs manually:
-# Option 1: Use jq
-# tail -f app.log | jq .
+## Constraints
 
-# Option 2: Switch profile temporarily
-# java -jar app.jar --spring.profiles.active=human-logs
-```
+### MUST DO
 
-### Log Format Optimized for AI Analysis
+| Rule | Preferred Pattern |
+|------|-------------------|
+| Use structured fields for important identifiers | `requestId`, `step`, `duration_ms`, domain IDs |
+| Prefer parameterized logging | `log.info("Order created {}", id)` or structured args |
+| Keep correlation context consistent | Populate MDC at the boundary and clean it up reliably |
+| Log exceptions once with context | Full stack trace at controller/message boundary, not every layer |
+| Keep logs safe for production | Redact or omit secrets, tokens, and sensitive personal data |
 
-```json
-{
-  "timestamp": "2026-01-29T10:15:30.123Z",
-  "level": "INFO",
-  "logger": "com.example.OrderService",
-  "message": "Order created",
-  "requestId": "req-abc123",
-  "traceId": "trace-xyz",
-  "orderId": 12345,
-  "userId": "user-789",
-  "duration_ms": 45,
-  "step": "payment_completed"
-}
-```
+### MUST NOT DO
+- Do not concatenate strings inside log calls when parameterized logging will do
+- Do not log passwords, tokens, full card numbers, or raw secrets
+- Do not leave MDC state uncleared after request or async work
+- Do not duplicate Kafka propagation or tracing architecture guidance here when another skill owns it
+- Do not treat DEBUG logs as a substitute for meaningful business or failure events
 
-**Key fields for AI debugging:**
-- `requestId` - group all logs from same request
-- `step` - track progress through flow
-- `duration_ms` - identify slow operations
-- `level` - quick filter for errors
+## Gotchas
 
-### Reading Logs with AI/Claude Code
+- Structured logs only help if key fields are stable; random message wording still hurts filtering and AI analysis.
+- MDC does not automatically cross async boundaries; missing propagation creates misleading partial traces.
+- The same exception logged in service, controller, and handler layers creates noise instead of observability.
+- Human-readable logs may feel easier locally, but JSON logs are usually better for tooling and production pipelines.
+- Logging skill scope stops before full tracing architecture or Kafka transport concerns.
 
-When asking AI to analyze logs:
+## Minimal Examples
 
-```bash
-# Get recent errors
-cat app.log | jq 'select(.level == "ERROR")' | tail -20
-
-# Follow specific request
-cat app.log | jq 'select(.requestId == "req-abc123")'
-
-# Find slow operations
-cat app.log | jq 'select(.duration_ms > 1000)'
-```
-
-AI can then:
-1. Parse JSON directly (no guessing)
-2. Follow request flow via requestId
-3. Identify exactly where errors occurred
-4. Measure timing between steps
-
----
-
-## Quick Setup (Spring Boot 3.4+)
-
-### Native Structured Logging
-
-Spring Boot 3.4+ has built-in support - no extra dependencies!
-
-```yaml
-# application.yml
-logging:
-  structured:
-    format:
-      console: logstash    # or "ecs" for Elastic Common Schema
-
-# Supported formats: logstash, ecs, gelf
-```
-
-### Profile-Based Switching
-
-```yaml
-# application.yml (default - JSON for AI/prod)
-spring:
-  profiles:
-    default: json-logs
-
----
-spring:
-  config:
-    activate:
-      on-profile: json-logs
-logging:
-  structured:
-    format:
-      console: logstash
-
----
-spring:
-  config:
-    activate:
-      on-profile: human-logs
-# No structured format = human-readable default
-logging:
-  pattern:
-    console: "%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
-```
-
-**Usage:**
-```bash
-# Default: JSON (for AI, CI/CD, production)
-./mvnw spring-boot:run
-
-# Human-readable when needed
-./mvnw spring-boot:run -Dspring.profiles.active=human-logs
-```
-
----
-
-## Setup for Spring Boot < 3.4
-
-### Logstash Logback Encoder
-
-**pom.xml:**
-```xml
-<dependency>
-    <groupId>net.logstash.logback</groupId>
-    <artifactId>logstash-logback-encoder</artifactId>
-    <version>7.4</version>
-</dependency>
-```
-
-**logback-spring.xml:**
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-
-    <!-- JSON (default) -->
-    <springProfile name="!human-logs">
-        <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-                <includeMdcKeyName>requestId</includeMdcKeyName>
-                <includeMdcKeyName>userId</includeMdcKeyName>
-            </encoder>
-        </appender>
-        <root level="INFO">
-            <appender-ref ref="JSON"/>
-        </root>
-    </springProfile>
-
-    <!-- Human-readable (optional) -->
-    <springProfile name="human-logs">
-        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder>
-                <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
-            </encoder>
-        </appender>
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-        </root>
-    </springProfile>
-
-</configuration>
-```
-
-### Adding Custom Fields (Logstash Encoder)
-
+### Boundary log with structured fields
 ```java
-import static net.logstash.logback.argument.StructuredArguments.kv;
-
-// Fields appear as separate JSON keys
-log.info("Order created",
-    kv("orderId", order.getId()),
-    kv("userId", user.getId()),
-    kv("total", order.getTotal()),
-    kv("step", "order_created")
-);
-
-// Output:
-// {"message":"Order created","orderId":123,"userId":"u-456","total":99.99,"step":"order_created"}
-```
-
----
-
-## SLF4J Basics
-
-### Logger Declaration
-
-```java
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-@Service
-public class OrderService {
-    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
-}
-
-// Note: This project does NOT use Lombok.
-// Always declare the logger explicitly as shown above.
-// Do not use @Slf4j.
-```
-
-### Parameterized Logging
-
-```java
-// ✅ GOOD: Evaluated only if level enabled
-log.debug("Processing order {} for user {}", orderId, userId);
-
-// ❌ BAD: Always concatenates
-log.debug("Processing order " + orderId + " for user " + userId);
-
-// ✅ For expensive operations
-if (log.isDebugEnabled()) {
-    log.debug("Full order details: {}", order.toJson());
-}
-```
-
----
-
-## Log Levels
-
-| Level | When | Example |
-|-------|------|---------|
-| **ERROR** | Failures needing attention | Unhandled exception, service down |
-| **WARN** | Unexpected but handled | Retry succeeded, deprecated API used |
-| **INFO** | Business events | Order created, payment processed |
-| **DEBUG** | Technical details | Method params, SQL queries |
-| **TRACE** | Very detailed | Loop iterations (rarely used) |
-
-```java
-log.error("Payment failed", kv("orderId", id), kv("reason", reason), exception);
-log.warn("Retry succeeded", kv("attempt", 3), kv("orderId", id));
-log.info("Order shipped", kv("orderId", id), kv("trackingNumber", tracking));
-log.debug("Fetching from DB", kv("query", "findById"), kv("id", id));
-```
-
----
-
-## MDC (Mapped Diagnostic Context)
-
-MDC adds context to every log entry in a request - essential for tracing.
-
-### Request ID Filter
-
-```java
-@Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
-public class RequestContextFilter extends OncePerRequestFilter {
-
-    @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
-        try {
-            String requestId = Optional.ofNullable(request.getHeader("X-Request-ID"))
-                .filter(s -> !s.isBlank())
-                .orElse(UUID.randomUUID().toString().substring(0, 8));
-
-            MDC.put("requestId", requestId);
-            response.setHeader("X-Request-ID", requestId);
-
-            chain.doFilter(request, response);
-        } finally {
-            MDC.clear();
-        }
-    }
-}
-```
-
-### Add User Context
-
-```java
-// After authentication
-MDC.put("userId", authentication.getName());
-
-// All subsequent logs include userId automatically
-log.info("User action performed");  // {"userId":"john123","message":"User action performed"}
-```
-
-### MDC in Async Operations
-
-```java
-// MDC doesn't auto-propagate to new threads!
-
-// ✅ Copy MDC context
-Map<String, String> context = MDC.getCopyOfContextMap();
-
-CompletableFuture.runAsync(() -> {
-    try {
-        if (context != null) MDC.setContextMap(context);
-        log.info("Async task running");  // Has requestId, userId
-    } finally {
-        MDC.clear();
-    }
-});
-```
-
----
-
-## What to Log
-
-### Business Events (INFO)
-
-```java
-// Include key identifiers and state
-log.info("Order created",
-    kv("orderId", id),
-    kv("userId", userId),
-    kv("total", total),
-    kv("itemCount", items.size()),
-    kv("step", "order_created"));
-
-log.info("Payment processed",
-    kv("orderId", id),
-    kv("amount", amount),
-    kv("method", "card"),
-    kv("step", "payment_completed"));
-```
-
-### External Calls (with timing)
-
-```java
-long start = System.currentTimeMillis();
-try {
-    Result result = externalService.call(params);
-    log.info("External call succeeded",
-        kv("service", "PaymentGateway"),
-        kv("operation", "charge"),
-        kv("duration_ms", System.currentTimeMillis() - start));
-    return result;
-} catch (Exception e) {
-    log.error("External call failed",
-        kv("service", "PaymentGateway"),
-        kv("operation", "charge"),
-        kv("duration_ms", System.currentTimeMillis() - start),
-        e);
-    throw e;
-}
-```
-
-### Flow Steps (for AI tracing)
-
-```java
-public Order processOrder(CreateOrderRequest request) {
-    log.info("Processing started", kv("step", "start"), kv("requestData", request.summary()));
-
-    Order order = createOrder(request);
-    log.info("Order created", kv("step", "order_created"), kv("orderId", order.getId()));
-
-    validateInventory(order);
-    log.info("Inventory validated", kv("step", "inventory_ok"), kv("orderId", order.getId()));
-
-    processPayment(order);
-    log.info("Payment processed", kv("step", "payment_done"), kv("orderId", order.getId()));
-
-    log.info("Processing completed", kv("step", "complete"), kv("orderId", order.getId()));
-    return order;
-}
-```
-
----
-
-## What NOT to Log
-
-```java
-// ❌ NEVER log sensitive data
-log.info("Login", kv("password", password));           // Passwords
-log.info("Payment", kv("cardNumber", card));           // Full card numbers
-log.info("Request", kv("token", jwtToken));            // Tokens
-log.info("User", kv("ssn", socialSecurity));           // PII
-
-// ✅ Safe alternatives
-log.info("Login attempted", kv("userId", userId));
-log.info("Payment", kv("cardLast4", last4));
-log.info("Token validated", kv("subject", sub), kv("exp", expiry));
-```
-
----
-
-## Exception Logging
-
-### Log Once at Boundary
-
-```java
-// ❌ BAD: Logs same exception multiple times
-void methodA() {
-    try { methodB(); }
-    catch (Exception e) { log.error("Error", e); throw e; }  // Log #1
-}
-void methodB() {
-    try { methodC(); }
-    catch (Exception e) { log.error("Error", e); throw e; }  // Log #2
-}
-
-// ✅ GOOD: Log at service boundary only
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<?> handle(Exception e, HttpServletRequest request) {
-        log.error("Request failed",
-            kv("path", request.getRequestURI()),
-            kv("method", request.getMethod()),
-            kv("errorType", e.getClass().getSimpleName()),
-            e);  // Full stack trace
-        return ResponseEntity.status(500).body(errorResponse);
-    }
-}
-```
-
-### Include Context
-
-```java
-// ❌ Useless
-log.error("Error occurred", e);
-
-// ✅ Useful for debugging
 log.error("Order processing failed",
     kv("orderId", orderId),
     kv("step", "payment"),
-    kv("userId", userId),
-    kv("attemptNumber", attempt),
-    e);
+    kv("requestId", MDC.get("requestId")),
+    exception);
 ```
 
----
-
-## Quick Reference
-
+### Request correlation with MDC
 ```java
-// === Setup ===
-private static final Logger log = LoggerFactory.getLogger(MyClass.class);
+String requestId = Optional.ofNullable(request.getHeader("X-Request-ID"))
+    .filter(value -> !value.isBlank())
+    .orElse(UUID.randomUUID().toString());
 
-// === Logging with structured fields ===
-import static net.logstash.logback.argument.StructuredArguments.kv;
-
-log.info("Event", kv("key1", value1), kv("key2", value2));
-log.error("Failed", kv("context", ctx), exception);
-
-// === MDC ===
 MDC.put("requestId", requestId);
-MDC.put("userId", userId);
-// ... all logs now include these
-MDC.clear();  // cleanup
-
-// === Levels ===
-log.error()  // Failures
-log.warn()   // Handled issues
-log.info()   // Business events
-log.debug()  // Technical details
-```
-
----
-
-## Analyzing Logs (AI/Human)
-
-```bash
-# Pretty print JSON logs
-tail -f app.log | jq .
-
-# Filter errors
-cat app.log | jq 'select(.level == "ERROR")'
-
-# Follow request flow
-cat app.log | jq 'select(.requestId == "abc123")'
-
-# Find slow operations (>1s)
-cat app.log | jq 'select(.duration_ms > 1000)'
-
-# Get timeline of steps
-cat app.log | jq 'select(.requestId == "abc123") | {time: .timestamp, step: .step, message: .message}'
-```
-
----
-
-## Micrometer Observation (Spring Boot 3.x)
-
-Spring Boot 3.x unified observability with Micrometer Observation API:
-
-```java
-// Auto-instrumented with @Observed (requires spring-boot-starter-aop)
-@Observed(name = "order.processing", contextualName = "process-order")
-@Transactional
-public Order processOrder(CreateOrderRequest request) {
-    // Automatically creates trace spans and metrics
-    return orderRepository.save(mapToEntity(request));
+try {
+    chain.doFilter(request, response);
+} finally {
+    MDC.clear();
 }
 ```
 
-```yaml
-# application.yml
-management:
-  observations:
-    key-values:
-      application: my-app
-  tracing:
-    sampling:
-      probability: 1.0  # 100% in dev, lower in prod
-```
+## What to Verify
+- Logs contain stable identifiers that support filtering and trace reconstruction
+- Sensitive data is absent or explicitly redacted
+- Exceptions are logged once at the correct boundary
+- Async work preserves or intentionally resets logging context
+- Kafka/tracing guidance stays routed to the owning skills instead of being reimplemented here
 
-### Correlation ID Propagation Across Services
-
-```java
-// Spring Boot 3.x auto-propagates traceId/spanId via Micrometer.
-// For custom correlation IDs across services:
-@Component
-public class CorrelationFilter extends OncePerRequestFilter {
-
-    @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
-        String correlationId = Optional.ofNullable(request.getHeader("X-Correlation-ID"))
-            .filter(s -> !s.isBlank())
-            .orElse(UUID.randomUUID().toString());
-
-        MDC.put("correlationId", correlationId);
-        response.setHeader("X-Correlation-ID", correlationId);
-
-        try {
-            chain.doFilter(request, response);
-        } finally {
-            MDC.remove("correlationId");
-        }
-    }
-}
-
-// When calling other services, propagate the header:
-// restClient.get().uri("/api/...").header("X-Correlation-ID", MDC.get("correlationId")).retrieve()
-```
-
----
-
-## Kafka Correlation ID Propagation
-
-Distributed tracing across service boundaries requires propagating correlation IDs through Kafka message headers.
-
-### ProducerInterceptor — Auto-inject MDC into Headers
-
-```java
-public class MdcKafkaProducerInterceptor implements ProducerInterceptor<String, Object> {
-
-    @Override
-    public ProducerRecord<String, Object> onSend(ProducerRecord<String, Object> record) {
-        String correlationId = MDC.get("correlationId");
-        String traceId = MDC.get("traceId");
-
-        if (correlationId != null) {
-            record.headers().add("correlationId", correlationId.getBytes(StandardCharsets.UTF_8));
-        }
-        if (traceId != null) {
-            record.headers().add("traceId", traceId.getBytes(StandardCharsets.UTF_8));
-        }
-        return record;
-    }
-
-    @Override public void onAcknowledgement(RecordMetadata metadata, Exception exception) {}
-    @Override public void close() {}
-    @Override public void configure(Map<String, ?> configs) {}
-}
-```
-
-Register in `ProducerConfig.INTERCEPTOR_CLASSES_CONFIG`.
-
-### @KafkaListener — Restore MDC from Headers
-
-```java
-@KafkaListener(topics = "orders", groupId = "order-service")
-public void consume(ConsumerRecord<String, OrderCreatedEvent> record, Acknowledgment ack) {
-    // Restore MDC from Kafka headers for correlated logging
-    extractHeader(record, "correlationId").ifPresent(v -> MDC.put("correlationId", v));
-    extractHeader(record, "traceId").ifPresent(v -> MDC.put("traceId", v));
-    MDC.put("kafka.topic", record.topic());
-    MDC.put("kafka.partition", String.valueOf(record.partition()));
-    MDC.put("kafka.offset", String.valueOf(record.offset()));
-
-    try {
-        orderService.processOrder(record.value());
-        ack.acknowledge();
-    } finally {
-        MDC.remove("correlationId");
-        MDC.remove("traceId");
-        MDC.remove("kafka.topic");
-        MDC.remove("kafka.partition");
-        MDC.remove("kafka.offset");
-    }
-}
-
-private Optional<String> extractHeader(ConsumerRecord<?, ?> record, String key) {
-    Header header = record.headers().lastHeader(key);
-    return header != null
-        ? Optional.of(new String(header.value(), StandardCharsets.UTF_8))
-        : Optional.empty();
-}
-```
-
-### Micrometer Auto-Propagation
-
-With `spring-kafka` + `micrometer-tracing-bridge-brave` on the classpath, Spring Kafka auto-propagates `b3` tracing headers through `KafkaTracingProducerInterceptor` and `KafkaTracingConsumerInterceptor`. Use manual propagation only when Micrometer Tracing is not in use.
-
-### Log Format in Kafka Context
-
-With the above MDC setup, every log line during message processing includes:
-```json
-{
-  "correlationId": "abc-123",
-  "traceId": "def-456",
-  "kafka.topic": "orders",
-  "kafka.partition": "2",
-  "kafka.offset": "1042",
-  "message": "Processing order event"
-}
-```
-This enables tracing a message from the HTTP request that triggered it through to the consumer that processed it.
-
-## Related Skills
-
-- `spring-boot-patterns` - Spring Boot configuration
-- `jpa-patterns` - Database logging (SQL queries)
-- `kafka-patterns` - Kafka producer/consumer patterns
-- Future: `observability-patterns` - Metrics, tracing, full observability
+## See References
+- `references/structured-logging-setup.md` for Spring Boot and Logback setup
+- `references/slf4j-and-levels.md` for declaration, levels, and parameterized logging
+- `references/mdc-and-context.md` for request IDs and async propagation
+- `references/logging-decisions.md` for what to log, what not to log, and boundary logging
+- `references/gotchas.md` for logging failure modes and ownership boundaries

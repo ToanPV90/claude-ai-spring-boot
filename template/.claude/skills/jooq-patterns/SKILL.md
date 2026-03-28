@@ -1,466 +1,171 @@
 ---
 name: jooq-patterns
-description: jOOQ type-safe SQL patterns for Spring Boot. Use when user needs complex queries beyond JPA, reporting, dynamic SQL, or database-first approach. Invoke for "jOOQ", "type-safe SQL", "complex query", "reporting query", or when JPA is insufficient.
+description: Implementation guidance for using jOOQ as the SQL-first companion to Spring Boot and JPA when queries become reporting-heavy, database-specific, or too dynamic for ORM-first access. Use when building or reviewing type-safe SQL queries, jOOQ code generation, reporting reads, batch SQL, or JPA-and-jOOQ coexistence patterns.
 license: MIT
 metadata:
   author: local
-  version: "1.0.0"
+  version: "1.1.0"
   domain: backend
-  triggers: jOOQ, type-safe SQL, complex query, reporting query, CTE, window function, dynamic SQL, database-first
+  triggers:
+    - jOOQ
+    - DSLContext
+    - org.jooq
+    - Condition
+    - Record
+    - fetchInto
+    - type-safe SQL
+    - complex SQL
+    - reporting query
+    - CTE
+    - window function
+    - dynamic SQL
+    - database-first
+    - jOOQ code generation
   role: specialist
   scope: implementation
   output-format: code + guidance
-  related-skills: jpa-patterns, spring-boot-patterns, java-architect
+  related-skills: jpa-patterns, blaze-persistence, postgres-master, spring-boot-engineer, spring-boot-patterns, java-architect, tdd-guide, java-code-review
 ---
 
-# jOOQ Patterns Skill
+# jOOQ Patterns
 
-Type-safe SQL with jOOQ in Spring Boot applications.
+Use jOOQ when the read or write shape is fundamentally SQL-shaped, not aggregate-shaped.
+
+## Version Assumptions
+
+- Spring Boot 3.x
+- jOOQ 3.20+
+- PostgreSQL as the default target dialect unless a project says otherwise
 
 ## When to Use
-- Complex queries that are awkward in JPQL/Criteria API
-- Reporting and analytics queries (GROUP BY, window functions, CTEs)
-- Database-first development approach
-- Need for type-safe, compile-time checked SQL
-- Dynamic query construction with type safety
-- When JPA N+1 or lazy loading becomes unmanageable
 
-## When to Stay with JPA
-- Simple CRUD operations (Spring Data JPA is simpler)
-- Standard entity relationships with lazy/eager fetching
-- When the team is already proficient with JPA
-- jOOQ and JPA can coexist — use each where it excels
+- JPQL or Specifications are getting contorted for reporting or search use cases
+- You need window functions, CTEs, database-specific operators, or SQL-heavy projections
+- The query should return a read model rather than a managed entity graph
+- Bulk updates or inserts are large enough that ORM lifecycle overhead is wasteful
+- You want JPA for aggregates but jOOQ for reporting and query-heavy paths in the same service
 
----
+## When Not to Use
 
-## Quick Reference: JPA vs jOOQ
+- The task is ordinary CRUD on a mutable aggregate root; prefer `jpa-patterns`
+- The task is projection-heavy but still entity-centric with keyset/entity-view needs; prefer `blaze-persistence`
+- The task is PostgreSQL schema, index, constraint, or partition design; prefer `postgres-master`
+- The task is controller/service/repository ownership or DTO boundary design; prefer `spring-boot-patterns`
+- The task is system-level persistence strategy or service decomposition; prefer `java-architect`
+- The task is test-first workflow rather than jOOQ specifics; prefer `tdd-guide`
+- The task is review-only bug/risk analysis; prefer `java-code-review`
 
-| Aspect | JPA/Hibernate | jOOQ |
-|--------|--------------|------|
-| Paradigm | Object-relational mapping | SQL-first, type-safe |
-| Best for | CRUD, entity graphs | Complex queries, reporting |
-| Schema | Code-first or DB-first | DB-first (code generation) |
-| Type safety | Runtime errors | Compile-time errors |
-| SQL control | Abstracted away | Full control |
-| N+1 risk | High | None (explicit queries) |
-| Learning curve | Medium (gotchas) | Low (if you know SQL) |
+## Reference Guide
 
----
+| Topic | File | Load When |
+|------|------|-----------|
+| Setup and code generation | `references/setup-and-codegen.md` | Adding Spring Boot starter config, Maven codegen, dialect setup, generated package conventions |
+| CRUD and dynamic queries | `references/crud-and-dynamic-queries.md` | Building repositories, projections, pagination, dynamic `Condition` lists, sort mapping |
+| Reporting and analytics | `references/reporting-and-analytics.md` | Using aggregations, window functions, CTEs, or SQL-first read models |
+| Advanced SQL and database-specific patterns | `references/advanced-sql.md` | Needing `EXISTS`, `UNION ALL`, `ON CONFLICT`, locking clauses, or PostgreSQL-specific jOOQ features |
+| JPA coexistence | `references/jpa-coexistence.md` | Mixing JPA and jOOQ in one service, sharing transactions, deciding which tool owns a use case |
+| Testing | `references/testing.md` | Writing `@SpringBootTest` + Testcontainers jOOQ tests, verifying SQL-heavy behavior |
 
-## Setup with Spring Boot
+## Symptom Triage
 
-### Maven Dependencies
+| Symptom | Default Move |
+|--------|--------------|
+| JPA query keeps growing joins, projections, and edge cases | Move the read path to jOOQ |
+| Need ranking, lag/lead, or month-over-month analytics | Use `references/reporting-and-analytics.md` |
+| Need optional filters with type-safe sorting/paging | Use `references/crud-and-dynamic-queries.md` |
+| Want both JPA aggregates and SQL-heavy reports in one service | Use `references/jpa-coexistence.md` |
+| Need to wire starter/codegen/dialect correctly | Use `references/setup-and-codegen.md` |
 
-```xml
-<!-- jOOQ with Spring Boot Starter -->
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-jooq</artifactId>
-</dependency>
+## SQL Decision Ladder
 
-<!-- jOOQ code generator (build-time only) -->
-<plugin>
-    <groupId>org.jooq</groupId>
-    <artifactId>jooq-codegen-maven</artifactId>
-    <executions>
-        <execution>
-            <goals><goal>generate</goal></goals>
-        </execution>
-    </executions>
-    <configuration>
-        <jdbc>
-            <driver>org.postgresql.Driver</driver>
-            <url>jdbc:postgresql://localhost:5432/mydb</url>
-            <user>${db.user}</user>
-            <password>${db.password}</password>
-        </jdbc>
-        <generator>
-            <database>
-                <inputSchema>public</inputSchema>
-            </database>
-            <generate>
-                <records>true</records>
-                <pojos>true</pojos>
-                <daos>false</daos>
-            </generate>
-            <target>
-                <packageName>vn.lukepham.projects.generated.jooq</packageName>
-                <directory>target/generated-sources/jooq</directory>
-            </target>
-        </generator>
-    </configuration>
-</plugin>
-```
+1. Start with the caller's read shape: aggregate, projection, search result, or report.
+2. If the caller needs a mutable aggregate, stay with JPA.
+3. If the caller needs a SQL-shaped read model, switch to jOOQ early.
+4. Select only the fields the caller needs; do not fetch entire rows by habit.
+5. Keep SQL in generated table/field references, not raw strings.
 
-### Application Configuration
+## Quick Mapping
 
-```yaml
-# application.yml — Spring Boot auto-configures jOOQ DSLContext
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/mydb
-    username: ${DB_USER}
-    password: ${DB_PASSWORD}
-  jooq:
-    sql-dialect: POSTGRES
-```
+| Need | Default |
+|-----|---------|
+| Mutable aggregate CRUD | JPA |
+| Read model / report row | jOOQ projection |
+| Dynamic filtering + paging | jOOQ `Condition` list |
+| Window functions / CTEs | jOOQ |
+| Shared transactional workflow | JPA + jOOQ in same `@Transactional` service |
+| Bulk insert/update | jOOQ batch / bulk SQL |
 
----
+## Constraints
 
-## Basic CRUD
+### MUST DO
+
+| Rule | Why |
+|------|-----|
+| Generate jOOQ classes from the real schema or migrations | The type-safety benefit depends on generation |
+| Always terminate fluent DML/DDL chains with `.execute()`, `.fetch()`, or another terminal operation | jOOQ builds queries fluently and silently until a terminal operation runs them |
+| Use constructor injection in production code | Matches repo-wide Spring conventions |
+| Keep repositories SQL-focused and return explicit projections or read models | Prevents ORM-style leakage into jOOQ code |
+| Share transactions intentionally when combining JPA and jOOQ | Mixed data access should still honor one boundary |
+| Prefer `EXISTS` / `NOT EXISTS` for existence checks and nullable anti-joins | They match SQL intent better than `COUNT(*) > 0` or `NOT IN` with nullable columns |
+
+### MUST NOT DO
+
+- Do not embed raw SQL strings when generated references can express the query safely.
+- Do not move simple entity CRUD to jOOQ just for consistency.
+- Do not return giant generic records when the caller only needs a few fields.
+- Do not duplicate JPA tuning guidance here; route fetch and aggregate behavior to `jpa-patterns`.
+- Do not default to `UNION` when `UNION ALL` is the real requirement.
+
+## Gotchas
+
+- jOOQ is not a replacement for aggregate modeling; it is a better fit for SQL-shaped reads and bulk writes.
+- A query becoming dynamic does not automatically mean it should stay in JPA; dynamic SQL is one of jOOQ's strengths.
+- Code generation drift quietly breaks confidence; regenerate whenever schema changes.
+- Sharing JPA and jOOQ in one transaction is fine, but only if ownership is clear and read/write paths are deliberate.
+- `NOT IN` behaves badly when nullable columns participate; prefer `NOT EXISTS` instead.
+- Aggregate filters written with `CASE` often read worse than PostgreSQL's `FILTER (WHERE ...)` syntax in jOOQ.
+
+## Minimal Examples
 
 ```java
-import static vn.lukepham.projects.generated.jooq.Tables.*;
-import static org.jooq.impl.DSL.*;
-
-@Repository
-public class OrderJooqRepository {
-
-    private final DSLContext dsl;
-
-    public OrderJooqRepository(DSLContext dsl) {
-        this.dsl = dsl;
-    }
-
-    // SELECT
-    public Optional<OrderRecord> findById(Long id) {
-        return dsl.selectFrom(ORDERS)
-            .where(ORDERS.ID.eq(id))
-            .fetchOptional();
-    }
-
-    // SELECT with join
-    public List<OrderWithCustomer> findOrdersWithCustomer(OrderStatus status) {
-        return dsl.select(
-                ORDERS.ID,
-                ORDERS.TOTAL,
-                ORDERS.STATUS,
-                ORDERS.CREATED_AT,
-                CUSTOMERS.NAME.as("customerName"),
-                CUSTOMERS.EMAIL.as("customerEmail"))
-            .from(ORDERS)
-            .join(CUSTOMERS).on(ORDERS.CUSTOMER_ID.eq(CUSTOMERS.ID))
-            .where(ORDERS.STATUS.eq(status.name()))
-            .orderBy(ORDERS.CREATED_AT.desc())
-            .fetchInto(OrderWithCustomer.class);
-    }
-
-    // INSERT
-    public Long create(CreateOrderRequest request) {
-        return dsl.insertInto(ORDERS)
-            .set(ORDERS.CUSTOMER_ID, request.customerId())
-            .set(ORDERS.TOTAL, request.total())
-            .set(ORDERS.STATUS, "PENDING")
-            .set(ORDERS.CREATED_AT, LocalDateTime.now())
-            .returning(ORDERS.ID)
-            .fetchOne()
-            .getId();
-    }
-
-    // UPDATE
-    public int updateStatus(Long id, String status) {
-        return dsl.update(ORDERS)
-            .set(ORDERS.STATUS, status)
-            .set(ORDERS.UPDATED_AT, LocalDateTime.now())
-            .where(ORDERS.ID.eq(id))
-            .execute();
-    }
-
-    // DELETE
-    public int delete(Long id) {
-        return dsl.deleteFrom(ORDERS)
-            .where(ORDERS.ID.eq(id))
-            .execute();
-    }
-}
-```
-
----
-
-## Dynamic Queries (Type-Safe)
-
-```java
-// ✅ jOOQ shines here — JPA Criteria API is verbose and error-prone
-
-public Page<OrderSummary> searchOrders(OrderSearchCriteria criteria, Pageable pageable) {
-    // Build WHERE clause dynamically
+public List<OrderSummary> findOrders(OrderSearchCriteria criteria) {
     List<Condition> conditions = new ArrayList<>();
-
     if (criteria.status() != null) {
         conditions.add(ORDERS.STATUS.eq(criteria.status()));
     }
     if (criteria.minTotal() != null) {
         conditions.add(ORDERS.TOTAL.ge(criteria.minTotal()));
     }
-    if (criteria.customerName() != null) {
-        conditions.add(CUSTOMERS.NAME.containsIgnoreCase(criteria.customerName()));
-    }
-    if (criteria.fromDate() != null) {
-        conditions.add(ORDERS.CREATED_AT.ge(criteria.fromDate()));
-    }
 
-    Condition whereClause = DSL.and(conditions);
-
-    // Count query
-    int total = dsl.selectCount()
+    return dsl.select(ORDERS.ID, ORDERS.STATUS, ORDERS.TOTAL)
         .from(ORDERS)
-        .join(CUSTOMERS).on(ORDERS.CUSTOMER_ID.eq(CUSTOMERS.ID))
-        .where(whereClause)
-        .fetchOne(0, int.class);
-
-    // Data query with pagination
-    List<OrderSummary> results = dsl.select(
-            ORDERS.ID,
-            ORDERS.STATUS,
-            ORDERS.TOTAL,
-            CUSTOMERS.NAME)
-        .from(ORDERS)
-        .join(CUSTOMERS).on(ORDERS.CUSTOMER_ID.eq(CUSTOMERS.ID))
-        .where(whereClause)
-        .orderBy(getSortFields(pageable.getSort()))
-        .limit(pageable.getPageSize())
-        .offset(pageable.getOffset())
+        .where(DSL.and(conditions))
         .fetchInto(OrderSummary.class);
-
-    return new PageImpl<>(results, pageable, total);
-}
-
-// Type-safe sort mapping
-private List<SortField<?>> getSortFields(Sort sort) {
-    return sort.stream()
-        .map(order -> {
-            Field<?> field = switch (order.getProperty()) {
-                case "total" -> ORDERS.TOTAL;
-                case "createdAt" -> ORDERS.CREATED_AT;
-                case "customerName" -> CUSTOMERS.NAME;
-                default -> ORDERS.ID;
-            };
-            return order.isAscending() ? field.asc() : field.desc();
-        })
-        .toList();
 }
 ```
-
----
-
-## Reporting & Analytics
-
-### Aggregations
 
 ```java
-// Revenue by status
-public List<StatusRevenue> revenueByStatus() {
-    return dsl.select(
-            ORDERS.STATUS,
-            count().as("orderCount"),
-            sum(ORDERS.TOTAL).as("totalRevenue"),
-            avg(ORDERS.TOTAL).as("avgOrderValue"))
-        .from(ORDERS)
-        .groupBy(ORDERS.STATUS)
-        .orderBy(sum(ORDERS.TOTAL).desc())
-        .fetchInto(StatusRevenue.class);
-}
-
-public record StatusRevenue(String status, int orderCount, BigDecimal totalRevenue, BigDecimal avgOrderValue) {}
-```
-
-### Window Functions
-
-```java
-// Rank customers by order value
-public List<CustomerRanking> rankCustomers() {
-    return dsl.select(
-            CUSTOMERS.NAME,
-            sum(ORDERS.TOTAL).as("totalSpent"),
-            rank().over(orderBy(sum(ORDERS.TOTAL).desc())).as("rank"),
-            rowNumber().over(orderBy(sum(ORDERS.TOTAL).desc())).as("rowNum"))
-        .from(CUSTOMERS)
-        .join(ORDERS).on(ORDERS.CUSTOMER_ID.eq(CUSTOMERS.ID))
-        .groupBy(CUSTOMERS.ID, CUSTOMERS.NAME)
-        .fetchInto(CustomerRanking.class);
+@Transactional
+public void completeOrder(Long id) {
+    Order order = orderRepository.findById(id).orElseThrow();
+    order.complete();
+    reportRepository.refreshDailySummary(id);
 }
 ```
 
-### Common Table Expressions (CTEs)
+## What to Verify
 
-```java
-// Monthly revenue trend with month-over-month growth
-public List<MonthlyTrend> monthlyRevenueTrend() {
-    var monthly = name("monthly").fields("month", "revenue").as(
-        select(
-            trunc(ORDERS.CREATED_AT, DatePart.MONTH).as("month"),
-            sum(ORDERS.TOTAL).as("revenue"))
-        .from(ORDERS)
-        .where(ORDERS.STATUS.eq("COMPLETED"))
-        .groupBy(trunc(ORDERS.CREATED_AT, DatePart.MONTH))
-    );
+- the query returns a projection or report row when an entity is unnecessary
+- sorting, paging, and optional filters map only to known fields
+- code generation matches the current schema
+- JPA vs jOOQ ownership is explicit when both appear in the same feature
+- tests exercise SQL-heavy paths with realistic database behavior
 
-    return dsl.with(monthly)
-        .select(
-            monthly.field("month"),
-            monthly.field("revenue"),
-            lag(monthly.field("revenue", BigDecimal.class))
-                .over(orderBy(monthly.field("month"))).as("prevMonth"))
-        .from(monthly)
-        .orderBy(monthly.field("month"))
-        .fetchInto(MonthlyTrend.class);
-}
-```
+## See References
 
----
-
-## Batch Operations
-
-```java
-// Batch insert (much faster than JPA for bulk data)
-public void batchInsert(List<CreateOrderRequest> orders) {
-    var batch = dsl.batch(
-        dsl.insertInto(ORDERS, ORDERS.CUSTOMER_ID, ORDERS.TOTAL, ORDERS.STATUS)
-           .values((Long) null, (BigDecimal) null, (String) null)
-    );
-
-    for (var order : orders) {
-        batch.bind(order.customerId(), order.total(), "PENDING");
-    }
-
-    batch.execute();
-}
-
-// Bulk update
-public int archiveOldOrders(LocalDateTime before) {
-    return dsl.update(ORDERS)
-        .set(ORDERS.STATUS, "ARCHIVED")
-        .set(ORDERS.UPDATED_AT, LocalDateTime.now())
-        .where(ORDERS.STATUS.eq("COMPLETED"))
-        .and(ORDERS.CREATED_AT.lt(before))
-        .execute();
-}
-```
-
----
-
-## Coexisting with JPA
-
-```java
-// ✅ Use both in the same application
-// JPA for simple CRUD:
-public interface OrderRepository extends JpaRepository<Order, Long> {
-    Optional<Order> findByIdAndStatus(Long id, OrderStatus status);
-}
-
-// jOOQ for complex queries:
-@Repository
-public class OrderReportRepository {
-    private final DSLContext dsl;
-
-    public OrderReportRepository(DSLContext dsl) {
-        this.dsl = dsl;
-    }
-
-    public List<OrderReport> generateMonthlyReport(YearMonth month) {
-        // Complex reporting query with window functions, CTEs, etc.
-    }
-}
-
-// Both use the same DataSource — Spring Boot auto-configures this
-```
-
-### Transaction Sharing
-
-```java
-// JPA and jOOQ share the same transaction
-@Service
-public class OrderService {
-
-    private final OrderRepository jpaRepo;        // JPA
-    private final OrderReportRepository jooqRepo;  // jOOQ
-
-    public OrderService(OrderRepository jpaRepo, OrderReportRepository jooqRepo) {
-        this.jpaRepo = jpaRepo;
-        this.jooqRepo = jooqRepo;
-    }
-
-    @Transactional
-    public void processAndReport(Long orderId) {
-        Order order = jpaRepo.findById(orderId).orElseThrow();  // JPA
-        order.setStatus(OrderStatus.COMPLETED);
-        jpaRepo.save(order);                                      // JPA
-
-        var report = jooqRepo.generateMonthlyReport(YearMonth.now());  // jOOQ
-        // Both in same transaction
-    }
-}
-```
-
----
-
-## Testing jOOQ
-
-```java
-@SpringBootTest
-@Testcontainers
-class OrderJooqRepositoryTest {
-
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-
-    @Autowired
-    private OrderJooqRepository repository;
-
-    @Autowired
-    private DSLContext dsl;
-
-    @BeforeEach
-    void setup() {
-        dsl.deleteFrom(ORDERS).execute();
-    }
-
-    @Test
-    void searchOrders_withStatusFilter_returnsMatching() {
-        // Insert test data via jOOQ
-        dsl.insertInto(ORDERS)
-            .set(ORDERS.CUSTOMER_ID, 1L)
-            .set(ORDERS.TOTAL, BigDecimal.TEN)
-            .set(ORDERS.STATUS, "PENDING")
-            .execute();
-
-        var criteria = new OrderSearchCriteria("PENDING", null, null, null);
-        var results = repository.searchOrders(criteria, Pageable.unpaged());
-
-        assertThat(results.getContent()).hasSize(1);
-        assertThat(results.getContent().get(0).status()).isEqualTo("PENDING");
-    }
-}
-```
-
----
-
-## Common Patterns
-
-| Pattern | jOOQ Approach |
-|---------|--------------|
-| Dynamic filtering | Build `List<Condition>`, combine with `DSL.and()` |
-| Pagination | `.limit(size).offset(offset)` + separate count query |
-| Sorting | Map property names to `Field<?>`, use `.asc()` / `.desc()` |
-| Projections | `fetchInto(MyRecord.class)` with Java records |
-| Batch operations | `dsl.batch(...)` for bulk insert/update |
-| Transactions | Same `@Transactional` as JPA (shared DataSource) |
-| Code generation | `jooq-codegen-maven` from live DB or Flyway migrations |
-
-## Anti-Patterns to Avoid
-
-| Anti-Pattern | Problem | Better Approach |
-|-------------|---------|-----------------|
-| String SQL in jOOQ | Loses type safety | Use generated table/field references |
-| Skipping code generation | No compile-time checks | Always generate from DB schema |
-| Fetching entire rows | Wastes bandwidth | Select only needed columns |
-| Ignoring fetchInto records | Manual mapping | Use Java records with `fetchInto()` |
-
----
-
-## Related Skills
-
-- `jpa-patterns` — When JPA is the better tool
-- `spring-boot-patterns` — Service/repository layer patterns
-- `java-architect` — When to choose jOOQ vs JPA
+- [Setup and Code Generation](references/setup-and-codegen.md)
+- [CRUD and Dynamic Queries](references/crud-and-dynamic-queries.md)
+- [Reporting and Analytics](references/reporting-and-analytics.md)
+- [Advanced SQL](references/advanced-sql.md)
+- [JPA Coexistence](references/jpa-coexistence.md)
+- [Testing](references/testing.md)

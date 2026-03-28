@@ -1,26 +1,30 @@
 # Spring Boot Setup
 
-## Project Structure (Clean Architecture)
+## Project Structure (Layered Spring Application in Maven Modules)
 
 ```
-src/main/java/com/example/
-├── domain/              # Core business logic
-│   ├── model/          # Entities, value objects
-│   ├── repository/     # Repository interfaces
-│   └── service/        # Domain services
-├── application/         # Use cases
-│   ├── dto/            # Request/Response DTOs
-│   ├── mapper/         # Entity <-> DTO mappers
-│   └── service/        # Application services
-├── infrastructure/      # External concerns
-│   ├── persistence/    # JPA implementations
-│   ├── config/         # Spring configuration
-│   └── security/       # Security setup
-└── presentation/        # API layer
-    └── rest/           # REST controllers
+my-project/
+├── pom.xml                    # Root parent + aggregator POM
+├── common/
+│   ├── pom.xml                # Shared contracts / value types
+│   └── src/main/java/com/example/common/
+└── service/
+    ├── pom.xml                # Deployable Spring Boot app module
+    └── src/main/java/com/example/service/
+        ├── controller/        # HTTP endpoints and request/response handling
+        ├── service/           # Business orchestration and transaction boundaries
+        ├── repository/        # Persistence access
+        ├── dto/               # Request/response models
+        ├── mapper/            # Mapping between DTOs and domain state
+        ├── domain/            # Core entities and value objects when needed
+        ├── config/            # Spring configuration and properties
+        ├── security/          # SecurityFilterChain, converters, security helpers
+        └── exception/         # Domain exceptions and advice classes
 ```
 
-## Modern pom.xml (Spring Boot 3.x)
+Use this as the default project shape for the template repo. Prefer a root Maven reactor with explicit child modules, then keep layering explicit inside each application module. More complex modular or hexagonal boundaries should only be introduced when the architecture decision genuinely requires them.
+
+## Root Reactor pom.xml (Spring Boot 3.x)
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -34,83 +38,67 @@ src/main/java/com/example/
     </parent>
 
     <groupId>com.example</groupId>
-    <artifactId>demo-service</artifactId>
+    <artifactId>demo-platform</artifactId>
     <version>1.0.0</version>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
 
     <properties>
         <java.version>21</java.version>
-        <mapstruct.version>1.5.5.Final</mapstruct.version>
-        <testcontainers.version>1.19.3</testcontainers.version>
     </properties>
 
+    <modules>
+        <module>common</module>
+        <module>service</module>
+    </modules>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <release>${java.version}</release>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>
+```
+
+For deeper parent/aggregator vs BOM guidance, route to `maven-master`.
+
+## Child Module pom.xml
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>demo-platform</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>demo-platform-service</artifactId>
+
     <dependencies>
-        <!-- Spring Boot Starters -->
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>demo-platform-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-
-        <!-- Database -->
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
-        </dependency>
-
-        <!-- Mappers -->
-        <dependency>
-            <groupId>org.mapstruct</groupId>
-            <artifactId>mapstruct</artifactId>
-            <version>${mapstruct.version}</version>
-        </dependency>
-
-        <!-- Testing -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.mapstruct</groupId>
-                            <artifactId>mapstruct-processor</artifactId>
-                            <version>${mapstruct.version}</version>
-                        </path>
-
-                    </annotationProcessorPaths>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>
 ```
 
@@ -189,7 +177,7 @@ public class DemoServiceApplication {
 ## Configuration Classes
 
 ```java
-package com.example.infrastructure.config;
+package com.example.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -213,7 +201,7 @@ public class OpenApiConfig {
 ## Exception Handling
 
 ```java
-package com.example.infrastructure.config;
+package com.example.config;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;

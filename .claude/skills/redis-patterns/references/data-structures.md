@@ -10,15 +10,8 @@ public class RedisTemplateConfig {
     public RedisTemplate<String, Object> redisTemplate(
         RedisConnectionFactory redisConnectionFactory
     ) {
-        ObjectMapper objectMapper = new ObjectMapper()
-            .findAndRegisterModules()
-            .activateDefaultTyping(
-                LaissezFaireSubTypeValidator.instance,
-                ObjectMapper.DefaultTyping.NON_FINAL
-            );
-
         GenericJackson2JsonRedisSerializer jsonSerializer =
-            new GenericJackson2JsonRedisSerializer(objectMapper);
+            new GenericJackson2JsonRedisSerializer();
         StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
         RedisTemplate<String, Object> template = new RedisTemplate<>();
@@ -32,6 +25,11 @@ public class RedisTemplateConfig {
     }
 }
 ```
+
+Prefer a typed `RedisTemplate<String, SomeValueType>` or a dedicated serializer when the value shape is fixed.
+Avoid permissive Jackson default typing for shared Redis data; it is too easy to turn into an unsafe polymorphic-deserialization default.
+
+When Redis values must be compared as raw bytes inside Lua scripts (for example lock tokens), use `StringRedisTemplate` or a template whose value serializer is `StringRedisSerializer` so the script compares the exact token you passed.
 
 ## ValueOperations — Session-like Data
 
@@ -132,7 +130,7 @@ The Lua script executes atomically — no race condition between ZREMRANGEBYSCOR
 
 ## Distributed Lock
 
-**Guarantees:** mutual exclusion with TTL-bounded lease. **Not** reentrant, **not** fault-tolerant across Redis node failures (use Redisson for that).
+**Guarantees:** mutual exclusion with TTL-bounded lease on one Redis primary. **Not** reentrant, **not** fault-tolerant across Redis node failures, and **not** safe against wall-clock shifts for long-running critical sections. Use Redisson/Redlock plus fencing-token design when cross-node fault tolerance is a real requirement.
 
 ```java
 @Component
@@ -146,10 +144,10 @@ public class RedisDistributedLock {
         end
         """;
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final StringRedisTemplate redisTemplate;
     private final RedisScript<Long> unlockScript;
 
-    public RedisDistributedLock(RedisTemplate<String, Object> redisTemplate) {
+    public RedisDistributedLock(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
         this.unlockScript = RedisScript.of(UNLOCK_SCRIPT, Long.class);
     }
@@ -192,6 +190,10 @@ public void processOrderExclusively(UUID orderId) {
     }
 }
 ```
+
+Use a string-based template for lock keys/tokens. JSON serializers wrap string values, which breaks raw Lua comparisons and can prevent the lock from ever being released by its owner.
+
+If the protected operation can outlive the lease or interacts with another system, add a fencing token (for example a monotonic version checked by the downstream resource). Redis TTL alone is not a full correctness boundary.
 
 ## Pub/Sub
 
@@ -326,3 +328,9 @@ public interface UserSessionRepository extends CrudRepository<UserSession, Strin
 | Hash get/set field | `opsForHash().get/put` | O(1) |
 | Publish message | `convertAndSend(channel, msg)` | O(N) subscribers |
 | Execute Lua script | `execute(RedisScript, keys, args)` | Atomic |
+
+## Gotchas
+
+- If Lua compares raw token bytes, use `StringRedisTemplate` or string serializers; JSON serializers wrap strings and break lock-token equality.
+- Single-primary Redis locks are lease-based coordination hints, not a universal distributed correctness guarantee; long-running or cross-system critical sections need fencing-token thinking.
+- Pub/Sub is fire-and-forget and handler-side failures do not travel back to the publisher, so business-critical delivery semantics should not rely on Redis pub/sub alone.

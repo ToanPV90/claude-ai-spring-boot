@@ -45,9 +45,10 @@
 - Always create test cases for the generated code both positive and negative.
 - Always generate the Github pipeline to verify the code.
 - Minimize the amount of code generated.
-- The Maven artifact name must be the same as the parent directory name.
+- The root Maven reactor artifact should match the parent directory name; child module artifactIds should use explicit suffix-based names.
 - Use semantic versioning for the Maven project. Each time you generate a new version, bump the PATCH section of the version number.
 - Use `vn.lukepham.projects` as the group ID for the Maven project and base Java package.
 - Do not use the Lombok library.
+- Prefer explicit `XxxService`/`XxxServiceImpl` and `XxxDao`/`XxxDaoImpl` naming for service and handwritten DAO layers.
 - Generate the Docker Compose file to run all components used by the application.
 - Update README.md each time you generate a new version.

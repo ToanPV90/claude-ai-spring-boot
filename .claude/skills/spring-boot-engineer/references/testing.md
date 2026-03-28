@@ -26,11 +26,11 @@ class UserServiceTest {
             25
         );
 
-        User user = User.builder()
-            .id(1L)
-            .email(request.email())
-            .username(request.username())
-            .build();
+        User user = new User();
+        user.setId(1L);
+        user.setEmail(request.email());
+        user.setUsername(request.username());
+        user.setActive(true);
 
         when(userRepository.existsByEmail(request.email())).thenReturn(false);
         when(passwordEncoder.encode(request.password())).thenReturn("encodedPassword");
@@ -227,6 +227,11 @@ class UserControllerTest {
 }
 ```
 
+Use `@WithMockUser` for general Spring Security controller tests. If the
+application runs as an OAuth2 resource server and authorization depends on JWT
+claims like `realm_access` or client roles, route to `keycloak-patterns` for
+`jwt()`-based MockMvc examples instead.
+
 ## Data JPA Testing
 
 ```java
@@ -245,12 +250,11 @@ class UserRepositoryTest {
     @DisplayName("Should find user by email")
     void shouldFindUserByEmail() {
         // Given
-        User user = User.builder()
-            .email("test@example.com")
-            .password("password")
-            .username("testuser")
-            .active(true)
-            .build();
+        User user = new User();
+        user.setEmail("test@example.com");
+        user.setPassword("password");
+        user.setUsername("testuser");
+        user.setActive(true);
 
         entityManager.persistAndFlush(user);
 
@@ -266,12 +270,11 @@ class UserRepositoryTest {
     @DisplayName("Should check if email exists")
     void shouldCheckIfEmailExists() {
         // Given
-        User user = User.builder()
-            .email("test@example.com")
-            .password("password")
-            .username("testuser")
-            .active(true)
-            .build();
+        User user = new User();
+        user.setEmail("test@example.com");
+        user.setPassword("password");
+        user.setUsername("testuser");
+        user.setActive(true);
 
         entityManager.persistAndFlush(user);
 
@@ -286,16 +289,16 @@ class UserRepositoryTest {
     @DisplayName("Should fetch user with roles")
     void shouldFetchUserWithRoles() {
         // Given
-        Role adminRole = Role.builder().name("ADMIN").build();
+        Role adminRole = new Role();
+        adminRole.setName("ADMIN");
         entityManager.persist(adminRole);
 
-        User user = User.builder()
-            .email("admin@example.com")
-            .password("password")
-            .username("admin")
-            .active(true)
-            .roles(Set.of(adminRole))
-            .build();
+        User user = new User();
+        user.setEmail("admin@example.com");
+        user.setPassword("password");
+        user.setUsername("admin");
+        user.setActive(true);
+        user.setRoles(Set.of(adminRole));
 
         entityManager.persistAndFlush(user);
         entityManager.clear();
@@ -448,22 +451,19 @@ class UserReactiveControllerTest {
 ## Testing Configuration
 
 ```java
-// application-test.yml
+// application-test.yml — prefer the real database shape over H2 shortcuts
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb
-    driver-class-name: org.h2.Driver
+    url: ${TEST_DB_URL}
+    username: ${TEST_DB_USERNAME}
+    password: ${TEST_DB_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-  security:
-    user:
-      name: test
-      password: test
 
 logging:
   level:
@@ -477,7 +477,7 @@ public class TestConfig {
     @Bean
     @Primary
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(4); // Faster for tests
+        return new BCryptPasswordEncoder(4); // Faster only for test fixtures
     }
 
     @Bean
@@ -497,14 +497,14 @@ public class TestConfig {
 public class TestDataFactory {
 
     public static User createUser(String email, String username) {
-        return User.builder()
-            .email(email)
-            .password("encodedPassword")
-            .username(username)
-            .active(true)
-            .createdAt(LocalDateTime.now())
-            .updatedAt(LocalDateTime.now())
-            .build();
+        User user = new User();
+        user.setEmail(email);
+        user.setPassword("encodedPassword");
+        user.setUsername(username);
+        user.setActive(true);
+        user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
+        return user;
     }
 
     public static UserCreateRequest createUserRequest() {
@@ -525,7 +525,7 @@ public class TestDataFactory {
 | `@SpringBootTest` | Full application context integration test |
 | `@WebMvcTest` | Test MVC controllers with mocked services |
 | `@WebFluxTest` | Test reactive controllers |
-| `@DataJpaTest` | Test JPA repositories with in-memory database |
+| `@DataJpaTest` | Test JPA repositories in a focused slice; prefer the real target dialect when behavior is dialect-sensitive |
 | `@MockitoBean` | Add mock bean to Spring context (Spring Boot 3.4+) |
 | `@WithMockUser` | Mock authenticated user for security tests |
 | `@Testcontainers` | Enable Testcontainers support |
@@ -535,7 +535,7 @@ public class TestDataFactory {
 
 - Write tests following AAA pattern (Arrange, Act, Assert)
 - Use descriptive test names with @DisplayName
-- Mock external dependencies, use real DB with Testcontainers
+- Mock external dependencies, use PostgreSQL/Testcontainers when repository behavior depends on the real dialect
 - Achieve 85%+ code coverage
 - Test happy path and edge cases
 - Use @Transactional for test data cleanup

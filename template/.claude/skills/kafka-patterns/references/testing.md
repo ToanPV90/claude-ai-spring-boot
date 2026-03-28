@@ -1,9 +1,36 @@
 # Kafka Testing Reference
 
+## Required Test Dependencies
+
+```xml
+<dependency>
+    <groupId>org.awaitility</groupId>
+    <artifactId>awaitility</artifactId>
+    <scope>test</scope>
+</dependency>
+
+<dependency>
+    <groupId>org.springframework.kafka</groupId>
+    <artifactId>spring-kafka-test</artifactId>
+    <scope>test</scope>
+</dependency>
+
+<dependency>
+    <groupId>org.testcontainers</groupId>
+    <artifactId>kafka</artifactId>
+    <scope>test</scope>
+</dependency>
+```
+
+Add Spring Kafka test support and Testcontainers Kafka support alongside Awaitility when using the examples below.
+
 ## @EmbeddedKafka for Slice Tests
 
 `@EmbeddedKafka` starts an in-process Kafka broker. It is fast and suitable for unit/slice
 tests that verify producer→consumer wiring without external infrastructure.
+
+Keep these tests focused on wiring and short retry loops. If the scenario depends on broker
+restart behavior, durable retry topics, or realistic partition assignment, prefer Testcontainers.
 
 ```java
 @SpringBootTest
@@ -193,6 +220,10 @@ class OrderPipelineIntegrationTest extends AbstractIntegrationTest {
 
 ## Testing DLT Behavior
 
+When asserting DLT routing, make the consumer strategy explicit in the test fixture. A malformed
+JSON case exercises fatal deserialization handling; a business exception with `DefaultErrorHandler`
+or `@RetryableTopic` exercises a different path and should be covered separately.
+
 ```java
 class DltBehaviorTest extends AbstractKafkaIntegrationTest {
 
@@ -271,6 +302,9 @@ class IdempotencyTest extends AbstractIntegrationTest {
     }
 }
 ```
+
+This pattern verifies consumer-side idempotency, not Kafka exactly-once semantics. Use it when the
+real guarantee depends on deduplication in your application state or database.
 
 ## Quick Reference
 

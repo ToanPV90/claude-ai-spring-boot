@@ -18,38 +18,71 @@ Spring Boot 3.x Maven project with TDD workflow, Claude AI integration, and ente
     │   ├── spring-boot-engineer.md
     │   ├── test-automator.md
     │   ├── security-engineer.md
-    │   └── ...                # See agents/ for full list
-    └── skills/            # Spring Boot skills & patterns
-        ├── spring-boot-patterns/  # Core patterns
-        ├── jpa-patterns/          # JPA/Hibernate
-        ├── kafka-patterns/        # Event-driven
-        ├── redis-patterns/        # Caching
-        ├── keycloak-patterns/     # OAuth2/OIDC
-        └── ...                    # 17 skills total (see .claude/skills/)
+    │   ├── devops-engineer.md
+    │   ├── docker-expert.md
+    │   ├── kubernetes-specialist.md
+    │   └── code-reviewer.md
+└── skills/            # 20 skills across 5 categories
+        ├── spring-boot-patterns/   # Core Spring Boot patterns
+        ├── spring-boot-engineer/   # Spring Boot 3.x configs
+        ├── java-architect/         # Enterprise Java patterns
+        ├── maven-master/           # Maven multi-module structure
+        ├── jpa-patterns/           # JPA/Hibernate patterns
+        ├── postgres-master/        # PostgreSQL schema and index design
+        ├── blaze-persistence/      # Entity views and keyset pagination
+        ├── kafka-patterns/         # Event-driven with Kafka
+        ├── redis-patterns/         # Caching with Redis
+        ├── keycloak-patterns/      # OAuth2/OIDC security
+        ├── tdd-guide/              # Test-driven development
+        ├── clean-code/             # DRY, KISS, YAGNI
+        ├── java-code-review/       # Code review checklists
+        ├── design-patterns/        # GoF patterns (Java)
+        ├── jooq-patterns/          # Type-safe SQL with jOOQ
+        ├── logging-patterns/       # SLF4J, structured logging
+        ├── api-contract-review/    # REST API review
+        ├── request-refactor-plan/  # Refactor planning
+        ├── audit-codex/            # Cross-audit via Codex
+        └── write-a-skill/          # Meta: create new skills
 ```
 
 ## WHERE TO LOOK
 | Task | Location | Notes |
 |------|----------|-------|
 | AI workflow rules | `CLAUDE.md` | Plan mode, verification, TDD |
-| Specialized agents | `.claude/agents/*.md` | java-architect, spring-boot-engineer, etc. |
+| Agents (all) | `.claude/agents/*.md` | 8 agents, invoke with @mention |
 | Spring Boot patterns | `.claude/skills/spring-boot-patterns/` | Controllers, services, repos |
-| JPA patterns | `.claude/skills/jpa-patterns/` | N+1 fixes, lazy loading |
-| Security patterns | `.claude/skills/keycloak-patterns/` | OAuth2, JWT |
-| Testing patterns | `.claude/skills/tdd-guide/` | Red-green-refactor |
-| Clean Code | `.claude/skills/clean-code/` | DRY, KISS, YAGNI |
+| Spring Boot 3.x configs | `.claude/skills/spring-boot-engineer/` | WebFlux, Security, JPA setup |
+| JPA/Hibernate | `.claude/skills/jpa-patterns/` | N+1 fixes, lazy loading, transactions |
+| Maven module structure | `.claude/skills/maven-master/` | Parent POMs, modules, BOMs, build commands |
+| PostgreSQL design | `.claude/skills/postgres-master/` | Tables, constraints, indexes, JSONB, partitioning |
+| Blaze-Persistence | `.claude/skills/blaze-persistence/` | Entity views, keyset pagination, CriteriaBuilder |
+| Kafka patterns | `.claude/skills/kafka-patterns/` | Producers, consumers, DLT, retry |
+| Redis patterns | `.claude/skills/redis-patterns/` | @Cacheable, pub/sub, rate limiting |
+| Security (OAuth2) | `.claude/skills/keycloak-patterns/` | JWT, realm roles, @PreAuthorize |
+| TDD workflow | `.claude/skills/tdd-guide/` | Red-green-refactor, TestContainers |
+| Clean Code | `.claude/skills/clean-code/` | DRY, KISS, YAGNI, naming |
+| Code review | `.claude/skills/java-code-review/` | Null safety, concurrency checks |
+| Design patterns | `.claude/skills/design-patterns/` | Factory, Builder, Strategy, etc. |
+| Type-safe SQL | `.claude/skills/jooq-patterns/` | jOOQ for complex queries |
+| Logging | `.claude/skills/logging-patterns/` | SLF4J, MDC, structured JSON |
+| API review | `.claude/skills/api-contract-review/` | HTTP semantics, versioning |
+| Refactor planning | `.claude/skills/request-refactor-plan/` | Safe staged refactor plans and rollout steps |
+| Codex audit | `.claude/skills/audit-codex/` | External Codex-based second-opinion review |
+| Create new skill | `.claude/skills/write-a-skill/` | Author Claude skills with thin mains and references |
 
 ## MAVEN CONVENTIONS
 - **Group ID**: `vn.lukepham.projects` (hardcoded)
-- **Artifact name**: Must match project directory name
+- **Root artifact**: Reactor artifact should match the project directory name
+- **Child modules**: Use explicit suffix-based artifact IDs such as `my-project-common` and `my-project-service`
 - **Versioning**: Semantic (major.minor.patch) — bump PATCH on release
 - **Java**: 17+ (records, sealed types, pattern matching)
 - **Spring Boot**: 3.x preferred
-- **Wrapper**: Use `./mvnw` commands (Maven wrapper included)
+- **Wrapper**: Use `./mvnw` commands from the root reactor POM
 
 ## CODE CONVENTIONS
 **Mandatory:**
 - **No Lombok** — explicit getters/setters/constructors
+- Service and handwritten DAO layers should use explicit interfaces with `Impl` implementations
 - **TDD required** — tests first, then code (see CLAUDE.md)
 - **Both positive & negative tests** for all code
 - **Latest dependencies** — keep versions current
@@ -57,16 +90,19 @@ Spring Boot 3.x Maven project with TDD workflow, Claude AI integration, and ente
 **Style:**
 - Records for immutable DTOs
 - Constructor injection (no @Autowired fields)
-- Layer separation: Controller → Service → Repository
+- Prefer a Maven multi-module layout for Java projects: root parent/aggregator POM plus child modules
+- Layer separation inside each application module: Controller → Service → Repository
+- Spring Security owns authentication through `SecurityFilterChain` / resource-server filters; controllers expose business APIs rather than `/login` flows by default
 - Minimize code — keep changes simple
 
 ## ANTI-PATTERNS (THIS PROJECT)
-**From CLAUDE.md (strictly enforced):**
 - Never use Lombok
 - Never skip tests
 - Never commit without verification
 - Never generate code without corresponding tests
 - Never use field injection
+- Never expose entities through API
+- Never use ddl-auto:create in production
 
 ## COMMANDS
 ```bash
@@ -81,23 +117,8 @@ Spring Boot 3.x Maven project with TDD workflow, Claude AI integration, and ente
 mvn wrapper:wrapper                 # Generate mvnw
 ```
 
-## AGENTS & SKILLS QUICK START
-**Load agent for task:**
-```
-claude> @java-architect implement WebFlux reactive endpoint
-claude> @test-automator write integration tests with TestContainers
-claude> @security-engineer add OAuth2 resource server
-```
-
-**Load skill for guidance:**
-```
-claude> use spring-boot-patterns for REST controller
-claude> use jpa-patterns to fix N+1 query
-claude> use tdd-guide for red-green-refactor
-```
-
 ## NOTES
 - This template includes NO application source code — you start from scratch
 - Docker Compose for dependencies: create `docker-compose.yml` as needed
 - GitHub Actions CI: create `.github/workflows/` as needed
-- See `.claude/skills/README.md` for skill catalog
+- 18 skills have `references/` subdirs with supplementary documentation

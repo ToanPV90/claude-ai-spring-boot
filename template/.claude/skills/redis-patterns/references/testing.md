@@ -1,5 +1,25 @@
 # Testing Reference
 
+## Required Test Dependencies
+
+```xml
+<dependency>
+    <groupId>org.awaitility</groupId>
+    <artifactId>awaitility</artifactId>
+    <scope>test</scope>
+</dependency>
+
+<dependency>
+    <groupId>org.testcontainers</groupId>
+    <artifactId>testcontainers</artifactId>
+    <scope>test</scope>
+</dependency>
+```
+
+The examples below use `GenericContainer<?>` directly because there is no standard dedicated Redis
+Testcontainers module in the main Testcontainers distribution. If your codebase wraps that in a
+local `RedisContainer` helper, document the helper explicitly instead of assuming it exists.
+
 ## TestContainers Redis
 
 Abstract base class shared across all Redis integration tests:
@@ -10,7 +30,7 @@ Abstract base class shared across all Redis integration tests:
 public abstract class AbstractRedisIntegrationTest {
 
     @Container
-    static final RedisContainer REDIS = new RedisContainer(
+    static final GenericContainer<?> REDIS = new GenericContainer<>(
         DockerImageName.parse("redis:7-alpine")
     )
         .withExposedPorts(6379)
@@ -37,7 +57,7 @@ Loads only Spring Data Redis infrastructure — no web layer, no JPA, no service
 class UserSessionRepositoryTest {
 
     @Container
-    static final RedisContainer REDIS = new RedisContainer(
+    static final GenericContainer<?> REDIS = new GenericContainer<>(
         DockerImageName.parse("redis:7-alpine")
     ).withExposedPorts(6379).withReuse(true);
 
@@ -55,7 +75,7 @@ class UserSessionRepositoryTest {
         redisTemplate.getConnectionFactory()
             .getConnection()
             .serverCommands()
-            .flushAll();
+            .flushDb();
     }
 
     @Test
@@ -100,7 +120,7 @@ class ProductServiceCacheTest extends AbstractRedisIntegrationTest {
         redisTemplate.getConnectionFactory()
             .getConnection()
             .serverCommands()
-            .flushAll();
+            .flushDb();
     }
 
     @Test
@@ -177,7 +197,7 @@ class ProductCacheTtlTest extends AbstractRedisIntegrationTest {
         redisTemplate.getConnectionFactory()
             .getConnection()
             .serverCommands()
-            .flushAll();
+            .flushDb();
     }
 
     @Test
@@ -211,7 +231,7 @@ Require `org.awaitility:awaitility` on the test classpath.
 class TokenStoreTest {
 
     @Container
-    static final RedisContainer REDIS = new RedisContainer(
+    static final GenericContainer<?> REDIS = new GenericContainer<>(
         DockerImageName.parse("redis:7-alpine")
     ).withExposedPorts(6379).withReuse(true);
 
@@ -232,7 +252,7 @@ class TokenStoreTest {
         redisTemplate.getConnectionFactory()
             .getConnection()
             .serverCommands()
-            .flushAll();
+            .flushDb();
     }
 
     @Test
@@ -271,6 +291,8 @@ class TokenStoreTest {
 
 ## Testing Pub/Sub
 
+Do not add mutable test hooks like `setOnReceive(...)` to a production `@Component` just to make pub/sub tests observable. Keep observability in test-only listeners or assert a real side effect.
+
 ```java
 @SpringBootTest
 @Testcontainers
@@ -280,19 +302,14 @@ class OrderEventPubSubTest extends AbstractRedisIntegrationTest {
     private OrderEventPublisher publisher;
 
     @Autowired
-    private OrderEventHandler handler; // the @Component MessageListener
+    private TestOrderEventListener testListener;
 
     @Test
     void shouldDeliverPublishedEventToSubscriber() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
         OrderEvent expected = new OrderEvent(UUID.randomUUID(), "ORDER_PLACED");
 
-        // Register a one-shot listener that releases the latch
-        handler.setOnReceive(event -> {
-            if (event.orderId().equals(expected.orderId())) {
-                latch.countDown();
-            }
-        });
+        testListener.expect(expected.orderId(), latch);
 
         publisher.publish(expected);
 
@@ -302,22 +319,61 @@ class OrderEventPubSubTest extends AbstractRedisIntegrationTest {
 }
 ```
 
-The handler needs a `setOnReceive(Consumer<OrderEvent>)` hook for testing. Add this to the handler with a no-op default so it doesn't affect production behavior:
+Register the test listener in a test-only configuration instead of modifying the production message handler:
 
 ```java
-@Component
-public class OrderEventHandler implements MessageListener {
+@TestConfiguration
+class RedisPubSubTestConfig {
 
-    private Consumer<OrderEvent> onReceive = event -> {};   // no-op default
-
-    public void setOnReceive(Consumer<OrderEvent> onReceive) {
-        this.onReceive = onReceive;
+    @Bean
+    TestOrderEventListener testOrderEventListener(ObjectMapper objectMapper) {
+        return new TestOrderEventListener(objectMapper);
     }
 
-    @Override
+    @Bean
+    MessageListenerAdapter testOrderEventListenerAdapter(TestOrderEventListener listener) {
+        return new MessageListenerAdapter(listener, "onMessage");
+    }
+
+    @Bean
+    RedisMessageListenerContainer testRedisMessageListenerContainer(
+        RedisConnectionFactory connectionFactory,
+        MessageListenerAdapter testOrderEventListenerAdapter,
+        ChannelTopic orderEventsTopic
+    ) {
+        RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        container.setConnectionFactory(connectionFactory);
+        container.addMessageListener(testOrderEventListenerAdapter, orderEventsTopic);
+        return container;
+    }
+}
+
+final class TestOrderEventListener {
+
+    private final ObjectMapper objectMapper;
+    private volatile UUID expectedOrderId;
+    private volatile CountDownLatch latch;
+
+    TestOrderEventListener(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
+    void expect(UUID orderId, CountDownLatch latch) {
+        this.expectedOrderId = orderId;
+        this.latch = latch;
+    }
+
     public void onMessage(Message message, byte[] pattern) {
-        // ... deserialize event ...
-        onReceive.accept(event);
+        try {
+            OrderEvent event = objectMapper.readValue(message.getBody(), OrderEvent.class);
+            CountDownLatch currentLatch = latch;
+            UUID currentExpectedOrderId = expectedOrderId;
+            if (currentLatch != null && currentExpectedOrderId != null && currentExpectedOrderId.equals(event.orderId())) {
+                currentLatch.countDown();
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
 ```
@@ -332,16 +388,18 @@ void clearRedis() {
     redisTemplate.getConnectionFactory()
         .getConnection()
         .serverCommands()
-        .flushAll();
+        .flushDb();
 }
 ```
+
+Prefer `flushDb()` over `flushAll()` so a reused container does not wipe unrelated Redis databases.
 
 For slice tests that don't have `RedisTemplate` injected, autowire `RedisConnectionFactory` directly:
 
 ```java
 @BeforeEach
 void clearRedis(@Autowired RedisConnectionFactory factory) {
-    factory.getConnection().serverCommands().flushAll();
+    factory.getConnection().serverCommands().flushDb();
 }
 ```
 
@@ -356,3 +414,9 @@ void clearRedis(@Autowired RedisConnectionFactory factory) {
 | Pub/Sub | `CountDownLatch` with timeout assertion |
 | Concurrent / race conditions | `ExecutorService` + `CyclicBarrier` + `CountDownLatch` |
 | Distributed lock | Assert `tryLock` returns empty when lock is held |
+
+## Gotchas
+
+- There is no standard dedicated Redis Testcontainers module in the main distribution, so examples should not assume a magic `RedisContainer` helper exists.
+- Use `flushDb()` in test cleanup, not `flushAll()`, unless the test truly owns every Redis database in the environment.
+- Do not mutate production listeners just to make pub/sub tests observable; keep test-specific listeners/configuration in test scope.

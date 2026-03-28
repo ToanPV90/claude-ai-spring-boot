@@ -1,200 +1,126 @@
 ---
 name: tdd-guide
-description: Guides Test-Driven Development using the red-green-refactor loop for Java Spring Boot applications. Covers unit tests, slice tests (WebMvcTest, DataJpaTest), and integration tests with TestContainers. Use when building features or fixing bugs test-first, when user mentions "red-green-refactor", wants TDD, integration tests, or test-first development in Java/Spring Boot.
+description: Workflow guidance for practicing Test-Driven Development in Java Spring Boot using a strict red-green-refactor loop and behavior-first test selection. Use when building or fixing Spring Boot code test-first, choosing the right test slice, or keeping implementation work anchored to a failing test.
 license: MIT
 metadata:
   author: local
-  version: "1.0.0"
+  version: "1.1.0"
   domain: testing
-  triggers: TDD, test-driven, red-green-refactor, failing test, test first, integration test, unit test, MockMvc, TestContainers
+  triggers:
+    - TDD
+    - test-driven development
+    - red-green-refactor
+    - failing test
+    - test first
+    - integration test
+    - unit test
+    - MockMvc
+    - TestContainers
+    - @WebMvcTest
+    - @DataJpaTest
   role: workflow
   scope: process
   output-format: code + guidance
-  related-skills: spring-boot-engineer, java-architect, java-code-review
+  related-skills: spring-boot-engineer, java-architect, java-code-review, kafka-patterns, redis-patterns, jpa-patterns
 ---
 
 # TDD Guide — Java Spring Boot
 
-## The Loop (non-negotiable)
+Own the workflow, not every framework-specific testing recipe.
 
-```
-RED   → Write a failing test that describes the behavior
-GREEN → Write the MINIMUM code to make it pass
-REFACTOR → Improve the code without changing behavior
-         (commit before refactoring)
-```
+## When to Use
 
-Never write production code without a RED test first.
+- The user wants strict red-green-refactor discipline
+- A new feature or bug fix should start from a failing test
+- You need to choose between controller, service, repository, and full integration tests
+- The work risks drifting into code-first implementation instead of behavior-first slices
 
-## Workflow Checklist
+## When Not to Use
 
-- [ ] Identify the behavior to add (one small slice)
-- [ ] **RED**: Write a test → run it → confirm it fails for the right reason
-- [ ] **GREEN**: Write minimal production code → run test → confirm it passes
-- [ ] **REFACTOR**: Ask "is there a cleaner way?" → refactor only if it adds value
-- [ ] Commit on green before the next RED
-- [ ] Repeat for the next behavior slice
+- The task is Kafka-specific test mechanics; use `kafka-patterns`
+- The task is Redis-specific caching or RedisTemplate tests; use `redis-patterns`
+- The task is JPA fetch/query troubleshooting rather than TDD workflow; use `jpa-patterns`
+- The task is generic implementation scaffolding after the test type is already chosen; use `spring-boot-engineer`
 
-## Choose the Right Test Type
+## Reference Guide
 
-| Layer | Annotation | Use When |
-|-------|-----------|----------|
-| Controller | `@WebMvcTest` | HTTP routing, request/response mapping, validation |
-| Repository | `@DataJpaTest` + TestContainers | Custom queries, data integrity |
-| Service | JUnit 5 + Mockito | Business logic, edge cases |
-| End-to-end | `@SpringBootTest` + TestContainers | Full feature verification |
-| Kafka Consumer | `@SpringBootTest` + `@EmbeddedKafka` | Message routing, retry/DLT behavior, consumer verification |
-| Redis Cache | `@SpringBootTest` + TestContainers Redis | Cache hit/miss, TTL expiry, eviction after write |
+| Topic | File | Load When |
+|------|------|-----------|
+| Spring Boot TDD examples and patterns | `references/patterns.md` | You need concrete `@WebMvcTest`, `@DataJpaTest`, service, or integration examples |
+| Test type selection | `references/test-type-selection.md` | You need more detail on which test slice to choose and what each one should prove |
+| Common TDD gotchas | `references/gotchas.md` | The work is drifting into code-first, fragile tests, or over-broad integration coverage |
 
-Prefer the narrowest test that covers the behavior.
+## Symptom Triage
 
-## RED — Write the Failing Test
+| Symptom | Default Move |
+|--------|--------------|
+| Started writing production code before a failing test exists | Stop and write the smallest failing behavior test first |
+| Unsure what test layer to start with | Use `references/test-type-selection.md` |
+| New feature touches HTTP contract | Start with `@WebMvcTest` |
+| Complex persistence/query behavior is the risk | Start with `@DataJpaTest` or route to `jpa-patterns` |
+| Async Kafka/Redis behavior is the risk | Keep the workflow here, but load the specialist testing reference |
 
-Start with the HTTP layer for new features:
+## Red-Green-Refactor Ladder
 
-```java
-@WebMvcTest(OrderController.class)
-class OrderControllerTest {
+1. Pick one behavior slice.
+2. Write the smallest test that describes that behavior.
+3. Run it and confirm it fails for the right reason.
+4. Add the minimum production code to go green.
+5. Assess refactoring only after green; skip it if there is no clear value.
+6. Repeat for the next behavior slice.
 
-    @Autowired MockMvc mockMvc;
-    @Autowired ObjectMapper objectMapper;
-    @MockitoBean OrderService orderService;   // Spring Boot 3.4+
+## Quick Mapping
 
-    @Test
-    @WithMockUser
-    void createOrder_validRequest_returns201() throws Exception {
-        var request = new CreateOrderRequest(customerId, items);
-        var response = new OrderResponse(orderId, customerId, OrderStatus.PENDING);
-        when(orderService.createOrder(any())).thenReturn(response);
+| Concern | Default Test |
+|--------|---------------|
+| HTTP routing / validation / response shape | `@WebMvcTest` |
+| Pure business logic | JUnit 5 + Mockito |
+| Custom repository/query behavior | `@DataJpaTest` + real database |
+| End-to-end feature wiring | `@SpringBootTest` + TestContainers |
+| Kafka flow | Workflow here + `kafka-patterns/references/testing.md` |
+| Redis flow | Workflow here + `redis-patterns/references/testing.md` |
 
-        mockMvc.perform(post("/api/v1/orders")
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.status").value("PENDING"));
-    }
-}
-```
+## Constraints
 
-Run test. **It must fail with a compilation error or 404 — not a test logic error.**
+### MUST DO
 
-## GREEN — Minimal Production Code
+| Rule | Why |
+|------|-----|
+| Start with a failing test before production code | TDD without RED is just delayed testing |
+| Confirm the failure is meaningful | Avoid false-red tests that fail for the wrong reason |
+| Choose the narrowest test that covers the behavior | Keeps feedback fast and failure diagnosis clear |
+| Reassess refactoring after green | Preserves the real red-green-refactor loop |
 
-Add only what is needed to pass. No extra logic, no "future-proofing":
+### MUST NOT DO
 
-```java
-@RestController
-@RequestMapping("/api/v1/orders")
-class OrderController {
-    private final OrderService orderService;
+- Do not write “future-proof” production code before a failing test needs it.
+- Do not use `Thread.sleep()` to wait for async behavior.
+- Do not let specialist testing examples bloat this workflow skill; route out to the owning skill.
+- Do not treat full integration tests as the default starting point for every feature.
 
-    OrderController(OrderService orderService) {
-        this.orderService = orderService;
-    }
+## Gotchas
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    OrderResponse createOrder(@Valid @RequestBody CreateOrderRequest request) {
-        return orderService.createOrder(request);
-    }
-}
-```
+- A green test that proves the wrong thing is not progress.
+- Teams often skip the REFACTOR check entirely once a test passes; this skill requires the assessment, even when the answer is “no refactor needed.”
+- Workflow guidance should stay here, but framework-specific test mechanics should live in the specialist skill that owns that subsystem.
 
-Run test. **It must go green.**
+## Minimal Workflow
 
-## REFACTOR — Improve Without Breaking
-
-Only refactor when there is clear value. Ask:
-- Is there duplication?
-- Is naming unclear?
-- Is the structure awkward?
-
-If no: skip the refactor step and move to the next RED.
-
-## Integration Test (full slice)
-
-Add an integration test once the unit tests are green:
-
-```java
-@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-@Testcontainers
-class OrderIntegrationTest {
-
-    @Container
-    static PostgreSQLContainer<?> postgres =
-        new PostgreSQLContainer<>("postgres:16-alpine");
-
-    @DynamicPropertySource
-    static void props(DynamicPropertyRegistry r) {
-        r.add("spring.datasource.url", postgres::getJdbcUrl);
-        r.add("spring.datasource.username", postgres::getUsername);
-        r.add("spring.datasource.password", postgres::getPassword);
-    }
-
-    @Autowired TestRestTemplate rest;
-
-    @Test
-    void createOrder_persistsAndReturns() {
-        var request = new CreateOrderRequest(/* ... */);
-        var response = rest.postForEntity("/api/v1/orders", request, OrderResponse.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        assertThat(response.getBody().id()).isNotNull();
-    }
-}
+```text
+RED   -> write one failing behavior test
+GREEN -> implement the minimum code to pass
+REFACTOR -> improve only if it clearly helps
 ```
 
-## Kafka TDD Flow
+## What to Verify
 
-**RED:** Write a test that produces a Kafka message and asserts a downstream effect (DB write, service call):
-```java
-@Test
-void orderCreated_event_persistsToDatabase() throws Exception {
-    CountDownLatch latch = new CountDownLatch(1);
-    doAnswer(inv -> { latch.countDown(); return null; })
-        .when(orderService).processOrder(any());
+- every production change in the slice traces back to a prior failing test
+- the chosen test layer is the narrowest one that still proves the behavior
+- negative paths exist alongside the happy path
+- async or infrastructure-heavy tests use the owning specialist reference instead of ad hoc mechanics
 
-    kafkaTemplate.send("orders", new OrderCreatedEvent(orderId, customerId));
+## See References
 
-    assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
-    verify(orderService).processOrder(any());
-}
-```
-This fails because no `@KafkaListener` exists yet.
-
-**GREEN:** Add the minimal `@KafkaListener` that calls the service.
-
-**Rule:** Never use `Thread.sleep()` — always `CountDownLatch` or `Awaitility`.
-
-## Redis Cache TDD Flow
-
-**RED:** Call a service method twice, assert the repository is called only once:
-```java
-@Test
-void findProduct_cachedAfterFirstCall_repositoryCalledOnce() {
-    when(productRepository.findById(1L)).thenReturn(Optional.of(product));
-
-    productService.findById(1L);
-    productService.findById(1L);  // second call should hit cache
-
-    verify(productRepository, times(1)).findById(1L);
-}
-```
-This fails because no `@Cacheable` exists yet — repository called twice.
-
-**GREEN:** Add `@Cacheable("products")` to the service method + `@EnableCaching` on a config class.
-
-## Anti-patterns (never do these)
-
-- Writing production code before a failing test exists
-- Tests that only test the happy path (always add at least one negative test)
-- Mocking what you own (mock external dependencies, not your own services in integration tests)
-- Shared mutable state in `@BeforeEach` — use factory methods instead
-- Skipping the REFACTOR assessment (even if you decide not to refactor, always assess)
-- Testing Kafka consumers with `Thread.sleep()` to wait for processing — use `CountDownLatch` or Awaitility instead
-- Using `ozimov/embedded-redis` or `it.ozimov:embedded-redis` — library abandoned, incompatible with Java 17; use TestContainers Redis
-
-## Reference
-
-Detailed patterns and examples: [patterns.md](references/patterns.md)
+- [Patterns](references/patterns.md)
+- [Test Type Selection](references/test-type-selection.md)
+- [Gotchas](references/gotchas.md)

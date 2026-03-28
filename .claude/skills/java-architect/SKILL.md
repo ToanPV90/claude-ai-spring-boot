@@ -1,156 +1,148 @@
 ---
 name: java-architect
-description: Use when building, configuring, or debugging enterprise Java applications with Spring Boot 3.x, microservices, or reactive programming. Invoke to implement WebFlux endpoints, optimize JPA queries and database performance, configure Spring Security with OAuth2/JWT, or resolve authentication issues and async processing challenges in cloud-native Spring applications.
+description: Architecture guidance for enterprise Java and Spring systems with an emphasis on service boundaries, integration choices, resilience, security posture, and delivery tradeoffs. Use when deciding how a Spring Boot or cloud-native Java system should be structured before turning the work into concrete implementation.
 license: MIT
 metadata:
   author: local
-  version: "1.1.0"
+  version: "1.2.0"
   domain: backend
-  triggers: Spring Boot, Java, microservices, Spring Cloud, JPA, Hibernate, WebFlux, reactive, Java Enterprise
+  triggers:
+    - Java architecture
+    - Spring architecture
+    - microservices architecture
+    - service boundaries
+    - system design
+    - reactive vs blocking
+    - Spring Cloud
+    - enterprise Java
+    - architecture tradeoffs
+    - ADR
   role: specialist
   scope: architecture
-  output-format: code
-  related-skills: spring-boot-patterns, design-patterns, jpa-patterns, kafka-patterns, redis-patterns, keycloak-patterns
+  output-format: guidance + decisions
+  related-skills: maven-master, spring-boot-patterns, spring-boot-engineer, design-patterns, jpa-patterns, keycloak-patterns, java-code-review
 ---
 
 # Java Architect
 
-Enterprise Java specialist focused on Spring Boot 3.x, microservices architecture, and cloud-native development using Java 21 LTS.
+Decision guide for shaping Java and Spring systems before committing to concrete implementation, framework wiring, or subsystem-specific optimization.
 
-## Core Workflow
+## When to Use
+- The task is about service boundaries, module decomposition, sync vs async communication, or system-level tradeoffs
+- A Spring Boot solution needs architectural defaults for data access, security posture, resilience, or deployment shape
+- You need to choose between reactive and blocking models, monolith vs microservice boundaries, or shared library vs service ownership
+- The user wants an architectural recommendation, ADR direction, or migration path before implementation starts
+- The task includes module decomposition, parent/aggregator POM choices, or build-structure ownership — route to `maven-master`
 
-1. **Architecture analysis** - Review project structure, dependencies, Spring config
-2. **Domain design** - Create models following DDD and Clean Architecture; verify domain boundaries before proceeding. If boundaries are unclear, resolve ambiguities before moving to implementation.
-3. **Implementation** - Build services with Spring Boot best practices
-4. **Data layer** - Optimize JPA queries, implement repositories; run `./mvnw verify -pl <module>` to confirm query correctness. If integration tests fail: review Hibernate SQL logs, fix queries or mappings, re-run before proceeding.
-5. **Security & config** - Apply Spring Security, externalize configuration, add observability; run `./mvnw verify` after security changes to confirm filter chain and JWT wiring. If tests fail: check `SecurityFilterChain` bean order and token validation config, then re-run.
-6. **Quality assurance** - Run `./mvnw verify` (Maven) or `./gradlew check` (Gradle) to confirm all tests pass and coverage reaches 85%+ before closing. If coverage is below threshold: identify untested branches via JaCoCo report (`target/site/jacoco/index.html`), add missing test cases, re-run.
+## When Not to Use
+- The task is mainly generating or modifying Spring Boot code — use `spring-boot-engineer`
+- The task is parent POM, reactor/module layout, `dependencyManagement`, or `pluginManagement` structure — use `maven-master`
+- The task is layering controllers, services, repositories, DTOs, or exception handling inside one application/module — use `spring-boot-patterns`
+- The task is JPA query tuning, fetch strategy, or persistence troubleshooting — use `jpa-patterns`
+- The task is mostly code review or bug-risk analysis — use `java-code-review`
+- The task is implementation-level security wiring for OAuth2/JWT/roles — use `keycloak-patterns`
 
 ## Reference Guide
 
-Load detailed guidance based on context:
-
 | Topic | Reference | Load When |
-|-------|-----------|-----------|
-| Spring Boot | `references/spring-boot-setup.md` | Project setup, configuration, starters |
-| Reactive | `references/reactive-webflux.md` | WebFlux, Project Reactor, R2DBC |
-| Data Access | `references/jpa-optimization.md` | JPA, Hibernate, query tuning |
-| Security | `references/spring-security.md` | OAuth2, JWT, method security |
-| Testing | `references/testing-patterns.md` | JUnit 5, TestContainers, Mockito |
+|------|-----------|-----------|
+| Spring Boot setup, project structure, platform defaults | `references/spring-boot-setup.md` | Deciding package structure, starter selection, configuration defaults, and platform conventions |
+| Reactive architecture and WebFlux/R2DBC tradeoffs | `references/reactive-webflux.md` | Choosing reactive vs blocking execution models or shaping reactive flows |
+| JPA optimization and read/write data design | `references/jpa-optimization.md` | Evaluating repository strategy, projections, query tuning, or persistence performance tradeoffs |
+| Spring Security architecture | `references/spring-security.md` | Choosing authentication, authorization, filter-chain, and token-validation approaches |
+| Testing strategy for architecture decisions | `references/testing-patterns.md` | Selecting test layers, contract boundaries, integration coverage, and test infrastructure |
+
+## Symptom Triage
+
+| Symptom | Default Check | Likely Direction |
+|--------|---------------|------------------|
+| Service boundaries feel arbitrary | Are capabilities split by team convenience instead of domain ownership? | Re-draw boundaries around business capabilities and data ownership |
+| Reactive code is hard to justify | Is the main need concurrency/streaming, or just normal request-response CRUD? | Default to blocking unless reactive constraints are real |
+| Shared libraries keep leaking business rules | Are multiple services depending on a “common” module with changing domain logic? | Keep shared modules narrow; move business rules back to owning service |
+| Security is spreading through every layer | Are controllers/services manually parsing roles or tokens? | Centralize with filter chain, converters, and policy boundaries |
+| Data access design keeps oscillating | Are repositories doing both transactional writes and reporting-heavy reads? | Split write model from read/reporting model; route SQL-first cases as needed |
+
+## Architecture Decision Ladder
+
+1. **What business capability owns this behavior and data?** Start with the domain boundary, not the transport.
+2. **Is one deployable unit enough?** Prefer a modular monolith until scale, coupling, or team autonomy justify service splits.
+3. **Does the runtime need reactive behavior?** Choose reactive only for concrete throughput, latency, streaming, or connection-pressure reasons.
+4. **Which integration style fits the failure model?** Use sync calls for immediate consistency and events for decoupling/time-shifted workflows.
+5. **Which concerns should stay out of this decision?** Route layering to `spring-boot-patterns`, implementation to `spring-boot-engineer`, and subsystem tuning to specialist skills.
+
+## Quick Mapping
+
+| Situation | Default Choice | Prefer Instead Of |
+|-----------|----------------|-------------------|
+| Early product with one domain team | Modular monolith with clear Maven modules and layered packages | Premature microservices |
+| High fan-out I/O or streaming workloads | Reactive/WebFlux only where needed | Blanket reactive adoption |
+| Security across many entry points | Central security configuration + method policy | Ad hoc checks in controllers |
+| Reporting-heavy reads beside transactional writes | Separate read model/query path | Forcing every read through the write model |
+| Repeated architecture decisions | ADR + explicit tradeoffs | Tribal knowledge |
 
 ## Constraints
 
 ### MUST DO
-- Use Java 21 LTS features (records, sealed classes, pattern matching)
-- Apply database migrations (Flyway/Liquibase)
-- Document APIs with OpenAPI/Swagger
-- Use proper exception handling hierarchy
-- Externalize all configuration (never hardcode values)
+
+| Rule | Preferred Pattern |
+|------|-------------------|
+| Start with domain boundaries | Model services/modules around business capability and ownership |
+| Make tradeoffs explicit | Record key decisions with an ADR or equivalent lightweight note |
+| Prefer the simpler deployable shape first | Monolith or modular monolith before microservices by default |
+| Align consistency model with the use case | Sync for immediate consistency, async for decoupling and retries |
+| Route subsystem depth outward | Use specialist skills for Maven structure, JPA, security wiring, and implementation detail |
 
 ### MUST NOT DO
-- Use deprecated Spring APIs
-- Skip input validation
-- Store sensitive data unencrypted
-- Use blocking code in reactive applications
-- Ignore transaction boundaries
+- Do not treat architecture work as a request to generate every class and endpoint inline
+- Do not split services only because microservices sound more scalable
+- Do not recommend reactive stacks when the real workload is ordinary CRUD
+- Do not let shared libraries become hidden cross-service domain ownership
+- Do not duplicate detailed subsystem guidance already owned by `spring-boot-engineer`, `jpa-patterns`, or `keycloak-patterns`
 
-## Output Templates
+## Gotchas
 
-When implementing Java features, provide:
-1. Domain models (entities, DTOs, records)
-2. Service layer (business logic, transactions)
-3. Repository interfaces (Spring Data)
-4. Controller/REST endpoints
-5. Test classes with comprehensive coverage
-6. Brief explanation of architectural decisions
+- “Enterprise architecture” advice becomes noise if it skips the actual tradeoff and jumps to buzzwords.
+- A clean package structure does not prove the domain boundaries are right.
+- Reactive designs often fail because teams adopt Reactor everywhere instead of only where the runtime constraint exists.
+- Microservices reduce some coupling while increasing operational coupling; treat that as a cost, not a free upgrade.
+- Architecture recommendations should shape implementation, not duplicate full implementation templates.
 
-## Code Examples
+## Minimal Examples
 
-### Minimal WebFlux REST Endpoint
-
-```java
-@RestController
-@RequestMapping("/api/v1/orders")
-public class OrderController {
-
-    private final OrderService orderService;
-
-    public OrderController(OrderService orderService) {
-        this.orderService = orderService;
-    }
-
-    @GetMapping("/{id}")
-    public Mono<ResponseEntity<OrderDto>> getOrder(@PathVariable UUID id) {
-        return orderService.findById(id)
-                .map(ResponseEntity::ok)
-                .defaultIfEmpty(ResponseEntity.notFound().build());
-    }
-
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public Mono<OrderDto> createOrder(@Valid @RequestBody CreateOrderRequest request) {
-        return orderService.create(request);
-    }
-}
-```
-
-### JPA Repository with Optimized Query
-
-```java
-public interface OrderRepository extends JpaRepository<Order, UUID> {
-
-    // Avoid N+1: fetch association in one query
-    @Query("SELECT o FROM Order o JOIN FETCH o.items WHERE o.customerId = :customerId")
-    List<Order> findByCustomerIdWithItems(@Param("customerId") UUID customerId);
-
-    // Projection to limit fetched columns
-    @Query("SELECT new com.example.dto.OrderSummary(o.id, o.status, o.total) FROM Order o WHERE o.status = :status")
-    Page<OrderSummary> findSummariesByStatus(@Param("status") OrderStatus status, Pageable pageable);
-}
-```
-
-### Spring Security OAuth2 JWT Configuration
-
-```java
-@Configuration
-@EnableMethodSecurity
-public class SecurityConfig {
-
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        return http
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(s -> s.sessionCreationPolicy(STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health").permitAll()
-                        .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
-                .build();
-    }
-}
-```
-
-## Architecture Decision Record Template
-
-When making architectural decisions, create `docs/adr/NNN-title.md`:
-
+### ADR framing
 ```markdown
-# ADR-NNN: [Title]
-
-## Status: [Proposed | Accepted | Deprecated | Superseded]
+# ADR-007: Keep Order and Billing in One Service for Phase 1
 
 ## Context
-What is the situation? What forces are at play?
+Order placement and billing changes are still tightly coupled and owned by one team.
 
 ## Decision
-What did we choose?
+Keep a modular monolith boundary now; publish domain events internally for later extraction.
 
 ## Consequences
-- **Positive:** ...
-- **Negative:** ...
-- **Trade-offs:** ...
+- Simpler deployment and transactions today
+- Clear extraction seam later if team or scale changes
 ```
 
-## Knowledge Reference
+### Boundary recommendation
+```text
+Order write model stays in the core service.
+Reporting reads move to a separate query path.
+OAuth2/JWT wiring routes to keycloak-patterns.
+Controller/service/repository shape routes to spring-boot-patterns.
+```
 
-Spring Boot 3.x, Java 21, Spring WebFlux, Project Reactor, Spring Data JPA, Spring Security, OAuth2/JWT, Hibernate, R2DBC, Spring Cloud, Resilience4j, Micrometer, JUnit 5, TestContainers, Mockito, Maven/Gradle
+## What to Verify
+- The recommendation names the real tradeoff, not just the chosen technology
+- Domain and data ownership are explicit
+- Reactive, microservice, and event-driven choices are justified by workload or org needs
+- Subsystem-specific implementation detail is routed to the right skill instead of duplicated here
+- The output leaves a clear path for `spring-boot-engineer` or `spring-boot-patterns` to implement next
+
+## See References
+- `maven-master` for Maven multi-module structure, parent/aggregator roles, and module-aware build rules
+- `references/spring-boot-setup.md` for Spring project structure and platform defaults inside a module or service
+- `references/reactive-webflux.md` for reactive architecture and execution-model tradeoffs
+- `references/jpa-optimization.md` for persistence strategy and performance depth
+- `references/spring-security.md` for security architecture choices
+- `references/testing-patterns.md` for test strategy around architecture decisions

@@ -1,430 +1,141 @@
 ---
 name: api-contract-review
-description: Review REST API contracts for HTTP semantics, versioning, backward compatibility, and response consistency. Use when user asks "review API", "check endpoints", "REST review", or before releasing API changes.
+description: Review guidance for REST API contracts with emphasis on HTTP semantics, versioning, backward compatibility, error formats, and release readiness. Use when auditing endpoint design, controller-facing API changes, or whether a REST contract remains safe and consistent for clients.
+license: MIT
+metadata:
+  author: local
+  version: "1.1.0"
+  domain: backend
+  triggers:
+    - review API
+    - REST review
+    - endpoint design
+    - API contract
+    - backward compatibility
+    - HTTP semantics
+    - response consistency
+    - status codes
+    - versioning review
+    - OpenAPI review
+  role: reviewer
+  scope: review
+  output-format: analysis
+  related-skills: java-code-review, spring-boot-patterns, spring-boot-engineer, keycloak-patterns
 ---
 
 # API Contract Review Skill
 
-Audit REST API design for correctness, consistency, and compatibility.
+Decision guide for reviewing HTTP-facing API behavior before merge or release without drifting into full implementation work or generic Java review.
 
 ## When to Use
-- User asks "review this API" / "check REST endpoints"
-- Before releasing API changes
-- Reviewing PR with controller changes
-- Checking backward compatibility
+- The user wants REST endpoints, controller changes, or API behavior reviewed before release
+- You need to check HTTP semantics, status codes, versioning, compatibility, or response consistency
+- A PR changes request/response DTOs, endpoint URLs, error handling, pagination, or OpenAPI documentation
+- The risk is client breakage or confusing API behavior rather than low-level implementation defects
 
----
+## When Not to Use
+- The task is implementation-heavy Spring Boot coding rather than API review — use `spring-boot-engineer`
+- The task is mostly layer ownership, DTO placement, or controller/service responsibility — use `spring-boot-patterns`
+- The task is generic Java/Spring bug-risk review with little HTTP surface — use `java-code-review`
+- The main concern is Keycloak/OAuth2 token mapping or role extraction rather than HTTP contract behavior — use `keycloak-patterns`
 
-## Quick Reference: Common Issues
+## Reference Guide
 
-| Issue | Symptom | Impact |
-|-------|---------|--------|
-| Wrong HTTP verb | POST for idempotent operation | Confusion, caching issues |
-| Missing versioning | `/users` instead of `/v1/users` | Breaking changes affect all clients |
-| Entity leak | JPA entity in response | Exposes internals, N+1 risk |
-| 200 with error | `{"status": 200, "error": "..."}` | Breaks error handling |
-| Inconsistent naming | `/getUsers` vs `/users` | Hard to learn API |
+| Topic | Reference | Load When |
+|------|-----------|-----------|
+| HTTP verbs, URL design, idempotency, and status code semantics | `references/http-semantics.md` | Reviewing endpoint shape, verbs, URL patterns, and response codes |
+| Versioning, backward compatibility, deprecation, and release safety | `references/versioning-and-compatibility.md` | Checking whether a change breaks existing clients |
+| DTO boundaries, pagination, and response consistency | `references/request-response-design.md` | Reviewing payload structure and API-facing model choices |
+| Error format, auth-related responses, and OpenAPI alignment | `references/errors-and-documentation.md` | Reviewing error envelopes, 401/403 behavior, and generated spec accuracy |
+| Review checklist and failure modes | `references/review-checklist.md` | Running a final API review pass or avoiding repeated contract mistakes |
 
----
+## Symptom Triage
 
-## HTTP Verb Semantics
+| Symptom | Default Check | Likely Fix |
+|--------|---------------|------------|
+| Endpoint “works” but feels un-RESTful | Is the verb or URL shape mismatched to the action? | Re-check verb semantics and noun-based URL design |
+| API change may break clients | Were fields removed, made required, renamed, or repurposed in place? | Apply compatibility/deprecation rules before merge |
+| Error handling confuses clients | Are status codes or error bodies inconsistent across endpoints? | Normalize error structure and 4xx/5xx usage |
+| Response leaks persistence internals | Are entities or internal IDs exposed directly? | Move to explicit request/response DTOs |
+| Security behavior is unclear to clients | Are 401/403 semantics or auth error bodies inconsistent? | Review auth-related contract behavior and route provider-specific wiring outward |
 
-### Verb Selection Guide
+## Contract Review Ladder
 
-| Verb | Use For | Idempotent | Safe | Request Body |
-|------|---------|------------|------|--------------|
-| GET | Retrieve resource | Yes | Yes | No |
-| POST | Create new resource | No | No | Yes |
-| PUT | Replace entire resource | Yes | No | Yes |
-| PATCH | Partial update | No* | No | Yes |
-| DELETE | Remove resource | Yes | No | Optional |
+1. **Is the HTTP contract understandable from the outside?** Check URL, verb, and status code meaning first.
+2. **Will existing clients break?** Review versioning, field changes, and deprecation path.
+3. **Are request and response models API-safe?** Avoid entity leakage and inconsistent shapes.
+4. **Are errors machine-usable and client-safe?** Normalize error format, status codes, and security responses.
+5. **Does this need a specialist instead?** Route deep implementation, layering, or provider-specific auth concerns outward.
 
-*PATCH can be idempotent depending on implementation
+## Quick Mapping
 
-### Common Mistakes
+| Situation | Default Review Move | Prefer Instead Of |
+|-----------|---------------------|-------------------|
+| Retrieval endpoint | `GET` with query params for filtering | `POST` used only to hide a search |
+| Create endpoint | `POST` returning `201 Created` + `Location` when appropriate | `200 OK` with ambiguous creation semantics |
+| Update endpoint | `PUT` for replace, `PATCH` for partial change | `POST /resource/{id}` for updates |
+| Collection endpoint | Pagination and stable response shape | Returning unbounded lists by default |
+| Auth failure behavior | `401` for missing/invalid auth, `403` for insufficient permission | Swapping the two |
 
+## Constraints
+
+### MUST DO
+
+| Rule | Preferred Pattern |
+|------|-------------------|
+| Use verbs that match behavior | `GET` retrieve, `POST` create/action, `PUT` replace, `PATCH` partial update, `DELETE` remove |
+| Keep public APIs versioned or explicitly internal | `/api/v1/...` or documented internal-only path |
+| Return DTOs, not entities | Stable request/response models owned by the API layer |
+| Use proper status codes for both success and failure | `201` for create, `404` for missing resource, `409` for conflict, etc. |
+| Keep error bodies consistent and client-safe | Machine-readable code + human-readable message + stable structure |
+
+### MUST NOT DO
+- Do not return `200 OK` for error states just to simplify handlers
+- Do not ship breaking field/path changes in place without versioning or migration path
+- Do not expose JPA entities or internal persistence structure as the public contract
+- Do not blur authentication and authorization failures by swapping `401` and `403`
+- Do not treat generated OpenAPI docs as correct without checking them against real behavior
+
+## Gotchas
+
+- A technically working endpoint can still be a bad contract if the verb or status code lies to clients.
+- “Just add a required field” is usually a breaking change, even when server code stays simple.
+- API review often drifts into service implementation comments; keep this skill focused on the contract surface.
+- Security contract review is about response behavior and access semantics, not provider-specific JWT plumbing.
+- Pagination, counts, and collection wrappers should be deliberate; accidental inconsistency is hard to undo later.
+
+## Minimal Examples
+
+### Use the right status code for creation
 ```java
-// ❌ POST for retrieval
-@PostMapping("/users/search")
-public List<User> searchUsers(@RequestBody SearchCriteria criteria) { }
-
-// ✅ GET with query params (or POST only if criteria is very complex)
-@GetMapping("/users")
-public List<User> searchUsers(
-    @RequestParam String name,
-    @RequestParam(required = false) String email) { }
-
-// ❌ GET for state change
-@GetMapping("/users/{id}/activate")
-public void activateUser(@PathVariable Long id) { }
-
-// ✅ POST or PATCH for state change
-@PostMapping("/users/{id}/activate")
-public ResponseEntity<Void> activateUser(@PathVariable Long id) { }
-
-// ❌ POST for idempotent update
-@PostMapping("/users/{id}")
-public User updateUser(@PathVariable Long id, @RequestBody UserDto dto) { }
-
-// ✅ PUT for full replacement, PATCH for partial
-@PutMapping("/users/{id}")
-public User replaceUser(@PathVariable Long id, @RequestBody UserDto dto) { }
-
-@PatchMapping("/users/{id}")
-public User updateUser(@PathVariable Long id, @RequestBody UserPatchDto dto) { }
+@PostMapping
+public ResponseEntity<UserResponse> create(@Valid @RequestBody CreateUserRequest request) {
+    UserResponse created = userService.create(request);
+    URI location = URI.create("/api/v1/users/" + created.id());
+    return ResponseEntity.created(location).body(created);
+}
 ```
 
----
-
-## API Versioning
-
-### Strategies
-
-| Strategy | Example | Pros | Cons |
-|----------|---------|------|------|
-| URL path | `/v1/users` | Clear, easy routing | URL changes |
-| Header | `Accept: application/vnd.api.v1+json` | Clean URLs | Hidden, harder to test |
-| Query param | `/users?version=1` | Easy to add | Easy to forget |
-
-### Recommended: URL Path
-
+### Avoid `200 OK` for error bodies
 ```java
-// ✅ Versioned endpoints
-@RestController
-@RequestMapping("/api/v1/users")
-public class UserControllerV1 { }
-
-@RestController
-@RequestMapping("/api/v2/users")
-public class UserControllerV2 { }
-
-// ❌ No versioning
-@RestController
-@RequestMapping("/api/users")  // Breaking changes affect everyone
-public class UserController { }
-```
-
-### Version Checklist
-- [ ] All public APIs have version in path
-- [ ] Internal APIs documented as internal (or versioned too)
-- [ ] Deprecation strategy defined for old versions
-
----
-
-## Request/Response Design
-
-### DTO vs Entity
-
-```java
-// ❌ Entity in response (leaks internals)
 @GetMapping("/{id}")
-public User getUser(@PathVariable Long id) {
-    return userRepository.findById(id).orElseThrow();
-    // Exposes: password hash, internal IDs, lazy collections
-}
-
-// ✅ DTO response
-@GetMapping("/{id}")
-public UserResponse getUser(@PathVariable Long id) {
-    User user = userService.findById(id);
-    return UserResponse.from(user);  // Only public fields
-}
-```
-
-### Response Consistency
-
-```java
-// ❌ Inconsistent responses
-@GetMapping("/users")
-public List<User> getUsers() { }  // Returns array
-
-@GetMapping("/users/{id}")
-public User getUser(@PathVariable Long id) { }  // Returns object
-
-@GetMapping("/users/count")
-public int countUsers() { }  // Returns primitive
-
-// ✅ Consistent wrapper (optional but recommended for large APIs)
-@GetMapping("/users")
-public ApiResponse<List<UserResponse>> getUsers() {
-    return ApiResponse.success(userService.findAll());
-}
-
-// Or at minimum, consistent structure:
-// - Collections: always wrapped or always raw (pick one)
-// - Single items: always object
-// - Counts/stats: always object { "count": 42 }
-```
-
-### Pagination
-
-```java
-// ❌ No pagination on collections
-@GetMapping("/users")
-public List<User> getAllUsers() {
-    return userRepository.findAll();  // Could be millions
-}
-
-// ✅ Paginated
-@GetMapping("/users")
-public Page<UserResponse> getUsers(
-    @RequestParam(defaultValue = "0") int page,
-    @RequestParam(defaultValue = "20") int size) {
-    return userService.findAll(PageRequest.of(page, size));
-}
-```
-
----
-
-## HTTP Status Codes
-
-### Success Codes
-
-| Code | When to Use | Response Body |
-|------|-------------|---------------|
-| 200 OK | Successful GET, PUT, PATCH | Resource or result |
-| 201 Created | Successful POST (created) | Created resource + Location header |
-| 204 No Content | Successful DELETE, or PUT with no body | Empty |
-
-### Error Codes
-
-| Code | When to Use | Common Mistake |
-|------|-------------|----------------|
-| 400 Bad Request | Invalid input, validation failed | Using for "not found" |
-| 401 Unauthorized | Not authenticated | Confusing with 403 |
-| 403 Forbidden | Authenticated but not allowed | Using 401 instead |
-| 404 Not Found | Resource doesn't exist | Using 400 |
-| 409 Conflict | Duplicate, concurrent modification | Using 400 |
-| 422 Unprocessable | Semantic error (valid syntax, invalid meaning) | Using 400 |
-| 500 Internal Error | Unexpected server error | Exposing stack traces |
-
-### Anti-Pattern: 200 with Error Body
-
-```java
-// ❌ NEVER DO THIS
-@GetMapping("/{id}")
-public ResponseEntity<Map<String, Object>> getUser(@PathVariable Long id) {
-    try {
-        User user = userService.findById(id);
-        return ResponseEntity.ok(Map.of("status", "success", "data", user));
-    } catch (NotFoundException e) {
-        return ResponseEntity.ok(Map.of(  // Still 200!
-            "status", "error",
-            "message", "User not found"
-        ));
-    }
-}
-
-// ✅ Use proper status codes
-@GetMapping("/{id}")
-public ResponseEntity<UserResponse> getUser(@PathVariable Long id) {
+public ResponseEntity<UserResponse> get(@PathVariable Long id) {
     return userService.findById(id)
         .map(ResponseEntity::ok)
         .orElse(ResponseEntity.notFound().build());
 }
 ```
 
----
+## What to Verify
+- HTTP verbs, URLs, and status codes match the real behavior exposed to clients
+- Request/response models are API-safe and consistent across related endpoints
+- Versioning and compatibility risks are explicit before merge or release
+- Error and auth-related responses are consistent, non-leaky, and client-usable
+- Deep implementation, layering, or provider-specific concerns are routed to the owning skills
 
-## Error Response Format
-
-### Consistent Error Structure
-
-```java
-// ✅ Standard error response
-public class ErrorResponse {
-    private String code;        // Machine-readable: "USER_NOT_FOUND"
-    private String message;     // Human-readable: "User with ID 123 not found"
-    private Instant timestamp;
-    private String path;
-    private List<FieldError> errors;  // For validation errors
-}
-
-// In GlobalExceptionHandler
-@ExceptionHandler(ResourceNotFoundException.class)
-public ResponseEntity<ErrorResponse> handleNotFound(
-        ResourceNotFoundException ex, HttpServletRequest request) {
-    return ResponseEntity.status(HttpStatus.NOT_FOUND)
-        .body(ErrorResponse.builder()
-            .code("RESOURCE_NOT_FOUND")
-            .message(ex.getMessage())
-            .timestamp(Instant.now())
-            .path(request.getRequestURI())
-            .build());
-}
-```
-
-### Security: Don't Expose Internals
-
-```java
-// ❌ Exposes stack trace
-@ExceptionHandler(Exception.class)
-public ResponseEntity<String> handleAll(Exception ex) {
-    return ResponseEntity.status(500)
-        .body(ex.getStackTrace().toString());  // Security risk!
-}
-
-// ✅ Generic message, log details server-side
-@ExceptionHandler(Exception.class)
-public ResponseEntity<ErrorResponse> handleAll(Exception ex) {
-    log.error("Unexpected error", ex);  // Full details in logs
-    return ResponseEntity.status(500)
-        .body(ErrorResponse.of("INTERNAL_ERROR", "An unexpected error occurred"));
-}
-```
-
----
-
-## Backward Compatibility
-
-### Breaking Changes (Avoid in Same Version)
-
-| Change | Breaking? | Migration |
-|--------|-----------|-----------|
-| Remove endpoint | Yes | Deprecate first, remove in next version |
-| Remove field from response | Yes | Keep field, return null/default |
-| Add required field to request | Yes | Make optional with default |
-| Change field type | Yes | Add new field, deprecate old |
-| Rename field | Yes | Support both temporarily |
-| Change URL path | Yes | Redirect old to new |
-
-### Non-Breaking Changes (Safe)
-
-- Add optional field to request
-- Add field to response
-- Add new endpoint
-- Add new optional query parameter
-
-### Deprecation Pattern
-
-```java
-@RestController
-@RequestMapping("/api/v1/users")
-public class UserControllerV1 {
-
-    @Deprecated
-    @GetMapping("/by-email")  // Old endpoint
-    public UserResponse getByEmailOld(@RequestParam String email) {
-        return getByEmail(email);  // Delegate to new
-    }
-
-    @GetMapping(params = "email")  // New pattern
-    public UserResponse getByEmail(@RequestParam String email) {
-        return userService.findByEmail(email);
-    }
-}
-```
-
----
-
-## API Review Checklist
-
-### 1. HTTP Semantics
-- [ ] GET for retrieval only (no side effects)
-- [ ] POST for creation (returns 201 + Location)
-- [ ] PUT for full replacement (idempotent)
-- [ ] PATCH for partial updates
-- [ ] DELETE for removal (idempotent)
-
-### 2. URL Design
-- [ ] Versioned (`/v1/`, `/v2/`)
-- [ ] Nouns, not verbs (`/users`, not `/getUsers`)
-- [ ] Plural for collections (`/users`, not `/user`)
-- [ ] Hierarchical for relationships (`/users/{id}/orders`)
-- [ ] Consistent naming (kebab-case or camelCase, pick one)
-
-### 3. Request Handling
-- [ ] Validation with `@Valid`
-- [ ] Clear error messages for validation failures
-- [ ] Request DTOs (not entities)
-- [ ] Reasonable size limits
-
-### 4. Response Design
-- [ ] Response DTOs (not entities)
-- [ ] Consistent structure across endpoints
-- [ ] Pagination for collections
-- [ ] Proper status codes (not 200 for errors)
-
-### 5. Error Handling
-- [ ] Consistent error format
-- [ ] Machine-readable error codes
-- [ ] Human-readable messages
-- [ ] No stack traces exposed
-- [ ] Proper 4xx vs 5xx distinction
-
-### 6. Compatibility
-- [ ] No breaking changes in current version
-- [ ] Deprecated endpoints documented
-- [ ] Migration path for breaking changes
-
----
-
-## OpenAPI Documentation
-
-```java
-// ✅ Annotate controllers for auto-generated docs
-@Operation(summary = "Get user by ID")
-@ApiResponses({
-    @ApiResponse(responseCode = "200", description = "User found"),
-    @ApiResponse(responseCode = "404", description = "User not found")
-})
-@GetMapping("/{id}")
-public ResponseEntity<UserResponse> getUser(@PathVariable Long id) { }
-
-// Verify: generated spec matches actual behavior
-// Access: http://localhost:8080/swagger-ui.html
-// Check: response schemas, required fields, example values
-```
-
-## OAuth2 / Security Contract Review
-
-| Check | Issue if Missing |
-|-------|-----------------|
-| Every non-public endpoint has explicit `@PreAuthorize` or `requestMatchers().hasRole()` | Implicit `authenticated()` may pass when role-based access is required |
-| 401 returned for missing/invalid token | If 403 is returned instead, client cannot distinguish auth vs authz failure |
-| 403 returned for insufficient role (valid token, wrong role) | If 401 is returned, client cannot distinguish auth vs authz failure |
-| `userId` in path validated against JWT `sub` in `@PreAuthorize` | IDOR — any authenticated user can access other users' data |
-| Public endpoints (`/actuator/health`, `/swagger-ui/**`) explicitly in `permitAll()` | Accidentally secured public endpoints |
-| Error responses from security filters do not expose role names or claim structure | Information disclosure — reveals authorization model to attackers |
-| OAuth2 scopes (coarse) vs roles (fine) distinction documented | Scopes control client permissions; roles control user permissions — both may need checking |
-
-## Rate Limiting
-
-```java
-// ✅ Protect endpoints from abuse (using bucket4j or Resilience4j)
-@RateLimiter(name = "api", fallbackMethod = "rateLimitFallback")
-@GetMapping("/users")
-public Page<UserResponse> getUsers(Pageable pageable) { }
-
-private Page<UserResponse> rateLimitFallback(Pageable pageable, Exception ex) {
-    throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Rate limit exceeded");
-}
-```
-
-## Content Negotiation
-
-```java
-// ✅ Support multiple response formats if needed
-@GetMapping(value = "/{id}", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-public ResponseEntity<UserResponse> getUser(@PathVariable Long id) { }
-```
-
----
-
-## Token Optimization
-
-For large APIs:
-1. List all controllers: `find . -name "*Controller.java"`
-2. Sample 2-3 controllers for pattern analysis
-3. Check `@ExceptionHandler` configuration once
-4. Grep for specific anti-patterns:
-   ```bash
-   # Find potential entity leaks
-   grep -r "public.*Entity.*@GetMapping" --include="*.java"
-
-   # Find 200 with error patterns
-   grep -r "ResponseEntity.ok.*error" --include="*.java"
-
-   # Find unversioned APIs
-   grep -r "@RequestMapping.*api" --include="*.java" | grep -v "/v[0-9]"
-   ```
+## See References
+- `references/http-semantics.md` for verbs, URL design, status codes, and content negotiation
+- `references/versioning-and-compatibility.md` for version strategy, breaking changes, and deprecation rules
+- `references/request-response-design.md` for DTOs, pagination, and response consistency
+- `references/errors-and-documentation.md` for error envelopes, OAuth2/security contract checks, and OpenAPI review
+- `references/review-checklist.md` for the end-to-end API review checklist and common traps

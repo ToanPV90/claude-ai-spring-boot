@@ -1,127 +1,110 @@
 ---
 name: write-a-skill
-description: Create new agent skills with proper structure, progressive disclosure, and bundled resources. Use when user wants to create, write, or build a new skill.
+description: Authoring guidance for creating or refactoring Claude skills with precise trigger descriptions, thin main files, progressive disclosure, and maintainable frontmatter. Use when adding a new skill, rewriting an existing skill, tightening skill metadata, or splitting a large skill into references and scripts.
 license: MIT
 metadata:
   author: local
-  version: "1.0.0"
+  version: "1.2.0"
   domain: backend
-  triggers: create skill, write skill, build skill, new skill, SKILL.md
+  triggers:
+    - create skill
+    - write skill
+    - build skill
+    - new skill
+    - SKILL.md
+    - skill metadata
+    - skill triggers
+    - split skill
   role: guide
   scope: process
   output-format: documentation
-  related-skills: ""
+  related-skills: clean-code, java-code-review
 ---
 
 # Writing Skills
 
-## Process
+Decision guide for authoring repo-native Claude skills that trigger reliably, stay thin, and stay synchronized across mirrored trees.
 
-1. **Gather requirements** - ask user about:
-   - What task/domain does the skill cover?
-   - What specific use cases should it handle?
-   - Does it need executable scripts or just instructions?
-   - Any reference materials to include?
+## When to Use
+- The user wants to create a new skill or rewrite an existing skill
+- A skill description is too vague to trigger reliably
+- A skill has grown into a monolith and should be split into `references/` or `scripts/`
+- The repo needs tighter frontmatter, trigger wording, or mirror discipline
 
-2. **Draft the skill** - create:
-   - SKILL.md with concise instructions
-   - Additional reference files if content exceeds 500 lines
-   - Utility scripts if deterministic operations needed
+## When Not to Use
+- The task is to edit normal project docs rather than a reusable skill
+- The task is implementation work rather than authoring AI instructions
 
-3. **Review with user** - present draft and ask:
-   - Does this cover your use cases?
-   - Anything missing or unclear?
-   - Should any section be more/less detailed?
+## Core Lessons
+- The `description` field is trigger logic, not marketing copy.
+- A skill is a folder, not just `SKILL.md`.
+- Keep the main file high-signal and move depth into `references/`.
+- Capture repeated model failure modes in `Gotchas`.
+- Verify root/template mirrors every time.
 
-## Skill Structure
+## Reference Guide
 
-```
-skill-name/
-├── SKILL.md           # Main instructions (required)
-├── REFERENCE.md       # Detailed docs (if needed)
-├── EXAMPLES.md        # Usage examples (if needed)
-└── scripts/           # Utility scripts (if needed)
-    └── helper.js
-```
+| Topic | Reference | Load When |
+|------|-----------|-----------|
+| Frontmatter schema, trigger wording, description rules | `references/frontmatter-and-triggers.md` | Defining metadata, tightening trigger quality, or fixing weak descriptions |
+| Folder shape, splitting strategy, progressive disclosure | `references/structure-and-splitting.md` | Deciding what stays in `SKILL.md` versus `references/` or `scripts/` |
+| Review checklist, mirror discipline, shipping checks | `references/review-and-verification.md` | Finalizing a skill before committing the change |
 
-## SKILL.md Template
+## Skill Authoring Ladder
 
-```md
----
-name: skill-name
-description: Brief description of capability. Use when [specific triggers].
----
+1. **Define the job clearly** — what single kind of work should this skill own?
+2. **Write the trigger surface** — description first, then YAML-list triggers.
+3. **Keep the main file thin** — decision rules and only the highest-signal examples.
+4. **Move depth outward** — use `references/` for long examples and advanced notes.
+5. **Verify the mirrors** — root and template must stay synchronized.
 
-# Skill Name
+## Quick Mapping
 
-## Quick start
+| Situation | Default Move | Avoid |
+|-----------|--------------|-------|
+| Description is vague | Rewrite it as capability sentence + explicit `Use when ...` | Keyword soup or generic summaries |
+| Main file keeps growing | Split advanced material into `references/` | Letting `SKILL.md` become a handbook |
+| Repeated deterministic step | Add `scripts/` support | Regenerating the same helper logic in prose |
+| Unsure what should trigger | Add concrete user intents, symptoms, and context cues | Single broad nouns like `documents` or `backend` |
 
-[Minimal working example]
+## Constraints
 
-## Workflows
+### MUST DO
 
-[Step-by-step processes with checklists for complex tasks]
+| Rule | Preferred Move |
+|------|----------------|
+| Make the description specific enough to trigger the skill reliably | Capability sentence, then `Use when ...` |
+| Keep `metadata.triggers` as a YAML list | Use concrete phrases and context cues |
+| Keep the main file focused on decisions and defaults | Move deep examples to references |
+| Keep mirrors synchronized | Edit both trees and run `npm run verify:skills` |
 
-## Advanced features
+### MUST NOT DO
+- Do not let `SKILL.md` become a full handbook if references would serve better
+- Do not use vague descriptions that fail to distinguish the skill from neighbors
+- Do not reference non-existent sibling skills in `related-skills`
+- Do not change only one mirror tree and leave the template drifting
 
-[Link to separate files: See [REFERENCE.md](REFERENCE.md)]
-```
+## Gotchas
+- A well-written skill can still fail if the description does not make it triggerable.
+- Overlong main files hide the defaults that Claude needs first.
+- A great folder structure still fails if `related-skills` points to things that do not exist.
+- Mirror drift is easy to miss unless you verify it every time.
 
-## Description Requirements
+## Minimal Workflow
+1. Define the skill’s job and boundaries.
+2. Write the frontmatter and trigger-oriented description.
+3. Draft a thin `SKILL.md` with decision rules and one or two examples.
+4. Move advanced material to `references/` or `scripts/`.
+5. Verify mirrors and run `npm run verify:skills`.
 
-The description is **the only thing your agent sees** when deciding which skill to load. It's surfaced in the system prompt alongside all other installed skills. Your agent reads these descriptions and picks the relevant skill based on the user's request.
+## What to Verify
+- The description clearly says what the skill does and when to use it
+- `metadata.triggers` is a YAML list with concrete cues
+- The main file stays thin and routes depth to references
+- Gotchas cover repeated failure modes
+- Root/template mirrors remain in sync
 
-**Goal**: Give your agent just enough info to know:
-
-1. What capability this skill provides
-2. When/why to trigger it (specific keywords, contexts, file types)
-
-**Format**:
-
-- Max 1024 chars
-- Write in third person
-- First sentence: what it does
-- Second sentence: "Use when [specific triggers]"
-
-**Good example**:
-
-```
-Extract text and tables from PDF files, fill forms, merge documents. Use when working with PDF files or when user mentions PDFs, forms, or document extraction.
-```
-
-**Bad example**:
-
-```
-Helps with documents.
-```
-
-The bad example gives your agent no way to distinguish this from other document skills.
-
-## When to Add Scripts
-
-Add utility scripts when:
-
-- Operation is deterministic (validation, formatting)
-- Same code would be generated repeatedly
-- Errors need explicit handling
-
-Scripts save tokens and improve reliability vs generated code.
-
-## When to Split Files
-
-Split into separate files when:
-
-- SKILL.md exceeds 100 lines
-- Content has distinct domains (finance vs sales schemas)
-- Advanced features are rarely needed
-
-## Review Checklist
-
-After drafting, verify:
-
-- [ ] Description includes triggers ("Use when...")
-- [ ] SKILL.md under 100 lines
-- [ ] No time-sensitive info
-- [ ] Consistent terminology
-- [ ] Concrete examples included
-- [ ] References one level deep
+## See References
+- `references/frontmatter-and-triggers.md` for metadata schema and trigger-writing rules
+- `references/structure-and-splitting.md` for folder shape and split heuristics
+- `references/review-and-verification.md` for final review and mirror-discipline checks

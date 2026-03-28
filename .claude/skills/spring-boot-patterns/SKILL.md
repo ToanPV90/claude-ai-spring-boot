@@ -1,62 +1,117 @@
 ---
 name: spring-boot-patterns
-description: Spring Boot best practices and patterns. Use when creating controllers, services, repositories, or when user asks about Spring Boot architecture, REST APIs, exception handling, or JPA patterns.
+description: Spring Boot layering and application-structure guidance for controllers, services, repositories, DTOs, validation, and exception boundaries. Use when shaping how a Spring Boot feature should be organized without turning the task into full code generation or system architecture work.
 license: MIT
 metadata:
   author: local
-  version: "1.0.0"
+  version: "1.1.0"
   domain: backend
-  triggers: Spring Boot, controller, service, repository, REST API, exception handling, JPA patterns, Spring Boot architecture
+  triggers:
+    - Spring Boot patterns
+    - controller pattern
+    - service layer
+    - repository pattern
+    - DTO pattern
+    - exception handling
+    - REST API conventions
+    - Spring Boot architecture
+    - package structure
+    - application layering
+    - validation pattern
+    - configuration properties
   role: specialist
-  scope: implementation
+  scope: architecture
   output-format: code + guidance
-  related-skills: java-architect, clean-code, design-patterns, jpa-patterns, kafka-patterns, redis-patterns, keycloak-patterns
+  related-skills: maven-master, spring-boot-engineer, java-architect, clean-code, design-patterns, jpa-patterns, logging-patterns, api-contract-review
 ---
 
 # Spring Boot Patterns Skill
 
-Best practices and patterns for Spring Boot applications.
+Decision guide for organizing Spring Boot code into clear layers and boundaries without drifting into full scaffolding or low-level subsystem advice.
 
 ## When to Use
-- User says "create controller" / "add service" / "Spring Boot help"
-- Reviewing Spring Boot code
-- Setting up new Spring Boot project structure
+- The user needs to decide how controllers, services, repositories, DTOs, or exception handlers should be shaped
+- A Spring Boot feature is becoming messy because responsibilities are leaking across layers or module boundaries
+- You need conventions for validation, transaction placement, API responses, or configuration binding
+- The task is about application structure and defaults more than framework-specific implementation detail
 
-## Project Structure
+## When Not to Use
+- The task is mostly generating or implementing full Spring Boot code — use `spring-boot-engineer`
+- The task is about parent POM/module layout, reactor boundaries, or Maven module ownership — use `maven-master`
+- The task is high-level architecture, service boundaries, or system decomposition — use `java-architect`
+- The task is JPA behavior, fetch strategy, or repository/query troubleshooting — use `jpa-patterns`
+- The task is structured logging or exception logging detail — use `logging-patterns`
 
-```
-src/main/java/com/example/myapp/
-├── MyAppApplication.java          # @SpringBootApplication
-├── config/                        # Configuration classes
-│   ├── SecurityConfig.java
-│   └── WebConfig.java
-├── controller/                    # REST controllers
-│   └── UserController.java
-├── service/                       # Business logic
-│   ├── UserService.java
-│   └── impl/
-│       └── UserServiceImpl.java
-├── repository/                    # Data access
-│   └── UserRepository.java
-├── model/                         # Entities
-│   └── User.java
-├── dto/                           # Data transfer objects
-│   ├── request/
-│   │   └── CreateUserRequest.java
-│   └── response/
-│       └── UserResponse.java
-├── exception/                     # Custom exceptions
-│   ├── ResourceNotFoundException.java
-│   └── GlobalExceptionHandler.java
-└── util/                          # Utilities
-    └── DateUtils.java
-```
+## Reference Guide
 
----
+| Topic | Reference | Load When |
+|------|-----------|-----------|
+| Package layout, layer ownership, controller/service/repository boundaries | `references/layers.md` | Deciding where code belongs inside a module and which layer should own a responsibility |
+| DTOs, mapping, validation, and API shapes | `references/api-boundaries.md` | Designing request/response models and validation flow |
+| Exceptions, error responses, logging boundaries | `references/error-handling.md` | Shaping `@RestControllerAdvice`, domain exceptions, and API-safe failures |
+| Configuration properties, profiles, annotations, testing slices | `references/configuration-and-testing.md` | Binding config, environment separation, and choosing slice vs integration tests |
+| Failure modes and scope boundaries | `references/gotchas.md` | Avoiding entity leakage, service-interface cargo culting, and layer confusion |
 
-## Controller Patterns
+## Symptom Triage
 
-### REST Controller Template
+| Symptom | Default Check | Likely Fix |
+|--------|---------------|------------|
+| Controller is doing business work | Is it calling repositories or mutating entities directly? | Move orchestration and rules into a service |
+| Entity shape leaks into API | Are controllers returning entities directly? | Introduce request/response DTOs and mapping |
+| Service layer feels inconsistent | Are service or DAO contracts missing, or are implementations named ad hoc? | Standardize on explicit interfaces plus `Impl` implementations |
+| Config is scattered and stringly typed | Are raw `@Value` fields everywhere? | Use `@ConfigurationProperties` |
+| Errors are inconsistent | Are exceptions handled ad hoc in controllers? | Centralize with `@RestControllerAdvice` |
+
+## Layering Decision Ladder
+
+1. **Is this HTTP-only concern?** Keep it in the controller.
+2. **Is this business orchestration or transaction boundary?** Put it in the service.
+3. **Is this persistence access?** Keep it in the repository and route JPA details to `jpa-patterns`.
+4. **Is this API contract shape?** Use DTOs and validation, not entities.
+5. **Is this module boundary or parent-POM decision?** Route to `maven-master`.
+6. **Is this framework setup or production-ready implementation depth?** Route to `spring-boot-engineer`.
+
+## Quick Mapping
+
+| Situation | Default Choice | Prefer Instead Of |
+|-----------|----------------|-------------------|
+| Handle request/response and validation | `@RestController` + DTOs | Controllers calling repositories directly |
+| Own business rules and transactions | `@Service` | Fat controllers |
+| Database access and query methods | Repository interface | Persistence code inside services/controllers |
+| External API shape | Request/response DTOs | Returning entities directly |
+| Centralized API errors | `@RestControllerAdvice` | Repeating try/catch per endpoint |
+| Environment-specific config | `@ConfigurationProperties` + profiles | Hardcoded values and scattered `@Value` strings |
+
+## Constraints
+
+### MUST DO
+
+| Rule | Preferred Pattern |
+|------|-------------------|
+| Keep layers explicit | Controller → Service → Repository inside each module |
+| Keep service and DAO contracts explicit | `XxxService` / `XxxServiceImpl` and `XxxDao` / `XxxDaoImpl` when custom persistence behavior is introduced |
+| Use constructor injection in production code | `public UserService(UserRepository repo)` |
+| Validate input at API boundaries | `@Valid` on request DTOs |
+| Return DTOs, not entities | Request/response models mapped from domain state |
+| Centralize API-safe error handling | `@RestControllerAdvice` with stable response shapes |
+
+### MUST NOT DO
+- Do not put business logic or repository calls directly in controllers
+- Do not expose entities through API endpoints as the default
+- Do not mix logging/tracing details or JPA tuning details into this skill when specialized skills already own them
+- Do not hardcode environment-specific configuration values in source-controlled config
+
+## Gotchas
+
+- Interface/implementation pairs are the repo convention for service and DAO layers, so keep the interface small and meaningful instead of letting it become a copy of every method on the implementation.
+- Returning entities directly looks fast until lazy fields, internal IDs, or persistence annotations leak into the API.
+- Validation belongs at the boundary; pushing all validation deep into services makes API errors inconsistent.
+- Exception handling examples often drift into logging detail; keep logging policy in `logging-patterns`.
+- Repository advice here should stay structural; query/fetch tuning belongs in `jpa-patterns`.
+
+## Minimal Examples
+
+### Controller delegates through a service interface
 ```java
 @RestController
 @RequestMapping("/api/v1/users")
@@ -68,432 +123,52 @@ public class UserController {
         this.userService = userService;
     }
 
-    @GetMapping
-    public ResponseEntity<List<UserResponse>> getAll() {
-        return ResponseEntity.ok(userService.findAll());
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<UserResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(userService.findById(id));
-    }
-
     @PostMapping
-    public ResponseEntity<UserResponse> create(
-            @Valid @RequestBody CreateUserRequest request) {
-        UserResponse created = userService.create(request);
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-            .path("/{id}")
-            .buildAndExpand(created.getId())
-            .toUri();
-        return ResponseEntity.created(location).body(created);
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<UserResponse> update(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateUserRequest request) {
-        return ResponseEntity.ok(userService.update(id, request));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        userService.delete(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<UserResponse> create(@Valid @RequestBody CreateUserRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(userService.create(request));
     }
 }
-```
 
-### Controller Best Practices
-
-| Practice | Example |
-|----------|---------|
-| Versioned API | `/api/v1/users` |
-| Plural nouns | `/users` not `/user` |
-| HTTP methods | GET=read, POST=create, PUT=update, DELETE=delete |
-| Status codes | 200=OK, 201=Created, 204=NoContent, 404=NotFound |
-| Validation | `@Valid` on request body |
-
-### ❌ Anti-patterns
-```java
-// ❌ Business logic in controller
-@PostMapping
-public User create(@RequestBody User user) {
-    user.setCreatedAt(LocalDateTime.now());  // Logic belongs in service
-    return userRepository.save(user);         // Direct repo access
-}
-
-// ❌ Returning entity directly (exposes internals)
-@GetMapping("/{id}")
-public User getById(@PathVariable Long id) {
-    return userRepository.findById(id).get();
-}
-```
-
----
-
-## Service Patterns
-
-### Service Interface + Implementation
-
-> **Note:** The interface + impl pattern is only necessary when you have multiple implementations. For most services, a concrete `@Service` class without an interface is simpler and preferred.
-```java
-// Interface
 public interface UserService {
-    List<UserResponse> findAll();
-    UserResponse findById(Long id);
     UserResponse create(CreateUserRequest request);
-    UserResponse update(Long id, UpdateUserRequest request);
-    void delete(Long id);
 }
 
-// Implementation
 @Service
-@Transactional(readOnly = true)  // Default read-only
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
-    private final UserMapper userMapper;
 
-    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper) {
+    public UserServiceImpl(UserRepository userRepository) {
         this.userRepository = userRepository;
-        this.userMapper = userMapper;
     }
 
     @Override
-    public List<UserResponse> findAll() {
-        return userRepository.findAll().stream()
-            .map(userMapper::toResponse)
-            .toList();
-    }
-
-    @Override
-    public UserResponse findById(Long id) {
-        return userRepository.findById(id)
-            .map(userMapper::toResponse)
-            .orElseThrow(() -> new ResourceNotFoundException("User", id));
-    }
-
-    @Override
-    @Transactional  // Write transaction
     public UserResponse create(CreateUserRequest request) {
-        User user = userMapper.toEntity(request);
+        User user = User.from(request);
         User saved = userRepository.save(user);
-        return userMapper.toResponse(saved);
-    }
-
-    @Override
-    @Transactional
-    public void delete(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new ResourceNotFoundException("User", id);
-        }
-        userRepository.deleteById(id);
+        return UserResponse.from(saved);
     }
 }
 ```
 
-### Service Best Practices
-
-- Interface + Impl for testability
-- `@Transactional(readOnly = true)` at class level
-- `@Transactional` for write methods
-- Throw domain exceptions, not generic ones
-- Use mappers (MapStruct) for entity ↔ DTO conversion
-
----
-
-## Repository Patterns
-
-### JPA Repository
+### Configuration properties over scattered `@Value`
 ```java
-public interface UserRepository extends JpaRepository<User, Long> {
-
-    // Derived query
-    Optional<User> findByEmail(String email);
-
-    List<User> findByActiveTrue();
-
-    // Custom query
-    @Query("SELECT u FROM User u WHERE u.department.id = :deptId")
-    List<User> findByDepartmentId(@Param("deptId") Long departmentId);
-
-    // Native query (use sparingly)
-    @Query(value = "SELECT * FROM users WHERE created_at > :date",
-           nativeQuery = true)
-    List<User> findRecentUsers(@Param("date") LocalDate date);
-
-    // Exists check (more efficient than findBy)
-    boolean existsByEmail(String email);
-
-    // Count
-    long countByActiveTrue();
-}
-```
-
-### Repository Best Practices
-
-- Use derived queries when possible
-- `Optional` for single results
-- `existsBy` instead of `findBy` for existence checks
-- Avoid native queries unless necessary
-- Use `@EntityGraph` for fetch optimization
-
----
-
-## DTO Patterns
-
-### Request/Response DTOs
-```java
-// Request DTO with validation
-public record CreateUserRequest(
-    @NotBlank(message = "Name is required")
-    @Size(min = 2, max = 100)
-    String name,
-
-    @NotBlank
-    @Email(message = "Invalid email format")
-    String email,
-
-    @NotNull
-    @Min(18)
-    Integer age
-) {}
-
-// Response DTO
-public record UserResponse(
-    Long id,
-    String name,
-    String email,
-    LocalDateTime createdAt
-) {}
-```
-
-### MapStruct Mapper
-```java
-@Mapper(componentModel = "spring")
-public interface UserMapper {
-
-    UserResponse toResponse(User entity);
-
-    List<UserResponse> toResponseList(List<User> entities);
-
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    User toEntity(CreateUserRequest request);
-}
-```
-
----
-
-## Exception Handling
-
-### Custom Exceptions
-```java
-public class ResourceNotFoundException extends RuntimeException {
-
-    public ResourceNotFoundException(String resource, Long id) {
-        super(String.format("%s not found with id: %d", resource, id));
-    }
-}
-
-public class BusinessException extends RuntimeException {
-
-    private final String code;
-
-    public BusinessException(String code, String message) {
-        super(message);
-        this.code = code;
-    }
-}
-```
-
-### Global Exception Handler
-```java
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
-        log.warn("Resource not found: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(new ErrorResponse("NOT_FOUND", ex.getMessage()));
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidation(
-            MethodArgumentNotValidException ex) {
-        List<String> errors = ex.getBindingResult().getFieldErrors().stream()
-            .map(e -> e.getField() + ": " + e.getDefaultMessage())
-            .toList();
-        return ResponseEntity.badRequest()
-            .body(new ErrorResponse("VALIDATION_ERROR", errors.toString()));
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
-        log.error("Unexpected error", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
-    }
-}
-
-public record ErrorResponse(String code, String message) {}
-```
-
----
-
-## Configuration Patterns
-
-### Application Properties
-```yaml
-# application.yml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/mydb
-    username: ${DB_USER}
-    password: ${DB_PASSWORD}
-  jpa:
-    hibernate:
-      ddl-auto: validate  # Never 'create' in production!
-    show-sql: false
-
-app:
-  jwt:
-    secret: ${JWT_SECRET}
-    expiration: 86400000
-```
-
-### Configuration Properties Class
-```java
-@Configuration
 @ConfigurationProperties(prefix = "app.jwt")
-@Validated
-public class JwtProperties {
-
-    @NotBlank
-    private String secret;
-
-    @Min(60000)
-    private long expiration;
-
-    // getters and setters
+public record JwtProperties(String secret, Duration expiration) {
 }
 ```
 
-### Profile-Specific Configuration
-```
-src/main/resources/
-├── application.yml           # Common config
-├── application-dev.yml       # Development
-├── application-test.yml      # Testing
-└── application-prod.yml      # Production
-```
+## What to Verify
+- Each responsibility sits in the narrowest layer that can own it cleanly
+- DTOs protect the API contract from persistence internals
+- Transaction boundaries live in services, not controllers
+- Error handling is centralized and API-safe
+- Specialized concerns still route outward to `spring-boot-engineer`, `jpa-patterns`, or `logging-patterns`
 
----
-
-## Common Annotations Quick Reference
-
-| Annotation | Purpose |
-|------------|---------|
-| `@RestController` | REST controller (combines @Controller + @ResponseBody) |
-| `@Service` | Business logic component |
-| `@Repository` | Data access component |
-| `@Configuration` | Configuration class |
-| Constructor injection | `public MyService(MyRepo repo) { this.repo = repo; }` |
-| `@Transactional` | Transaction management |
-| `@Valid` | Trigger validation |
-| `@ConfigurationProperties` | Bind properties to class |
-| `@Profile("dev")` | Profile-specific bean |
-| `@Scheduled` | Scheduled tasks |
-
----
-
-## Testing Patterns
-
-### Controller Test (MockMvc)
-```java
-@WebMvcTest(UserController.class)
-class UserControllerTest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @MockitoBean  // Spring Boot 3.4+ (replaces @MockBean)
-    private UserService userService;
-
-    @Test
-    void shouldReturnUser() throws Exception {
-        when(userService.findById(1L))
-            .thenReturn(new UserResponse(1L, "John", "john@example.com", null));
-
-        mockMvc.perform(get("/api/v1/users/1"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.name").value("John"));
-    }
-}
-```
-
-### Service Test
-```java
-@ExtendWith(MockitoExtension.class)
-class UserServiceImplTest {
-
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private UserMapper userMapper;
-
-    @InjectMocks
-    private UserServiceImpl userService;
-
-    @Test
-    void shouldThrowWhenUserNotFound() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> userService.findById(1L))
-            .isInstanceOf(ResourceNotFoundException.class);
-    }
-}
-```
-
-### Integration Test
-```java
-@SpringBootTest
-@AutoConfigureMockMvc
-@Testcontainers
-class UserIntegrationTest {
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15");
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Test
-    void shouldCreateUser() throws Exception {
-        mockMvc.perform(post("/api/v1/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                    {"name": "John", "email": "john@example.com", "age": 25}
-                    """))
-            .andExpect(status().isCreated());
-    }
-}
-```
-
----
-
-## Quick Reference Card
-
-| Layer | Responsibility | Annotations |
-|-------|---------------|-------------|
-| Controller | HTTP handling, validation | `@RestController`, `@Valid` |
-| Service | Business logic, transactions | `@Service`, `@Transactional` |
-| Repository | Data access | `@Repository`, extends `JpaRepository` |
-| DTO | Data transfer | Records with validation annotations |
-| Config | Configuration | `@Configuration`, `@ConfigurationProperties` |
-| Exception | Error handling | `@RestControllerAdvice` |
+## See References
+- `maven-master` for Maven multi-module structure and parent/aggregator boundaries
+- `references/layers.md` for controller/service/repository boundaries and package layout inside a module
+- `references/api-boundaries.md` for DTOs, validation, and mapping rules
+- `references/error-handling.md` for domain exceptions, advice classes, and API-safe failures
+- `references/configuration-and-testing.md` for config binding, profiles, annotations, and testing defaults
+- `references/gotchas.md` for layering failure modes and scope boundaries

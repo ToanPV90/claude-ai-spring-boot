@@ -1,12 +1,24 @@
 ---
 name: design-patterns
-description: Common design patterns with Java examples (Factory, Builder, Strategy, Observer, Decorator, etc.). Use when user asks "implement pattern", "use factory", "strategy pattern", or when designing extensible components.
+description: Pattern-selection guidance for Java and Spring codebases with focused implementation defaults. Use when deciding whether a Factory, Builder, Strategy, Decorator, Observer, Adapter, or related pattern is justified, or when refactoring rigid code into a clearer extension model.
 license: MIT
 metadata:
   author: local
-  version: "1.0.0"
-  domain: backend
-  triggers: design pattern, factory, builder, strategy, observer, decorator, adapter, singleton, template method, event-driven
+  version: "1.1.0"
+  domain: architecture
+  triggers:
+    - design pattern
+    - factory pattern
+    - builder pattern
+    - strategy pattern
+    - observer pattern
+    - decorator pattern
+    - adapter pattern
+    - template method
+    - singleton pattern
+    - extensible component
+    - remove switch statement
+    - refactor rigid code
   role: guide
   scope: architecture
   output-format: code + guidance
@@ -15,789 +27,153 @@ metadata:
 
 # Design Patterns Skill
 
-Practical design patterns reference for Java with modern examples.
+Decision guide for when a pattern is actually warranted in Java and Spring applications.
 
 ## When to Use
-- User asks to implement a specific pattern
-- Designing extensible/flexible components
-- Refactoring rigid code structures
-- Code review suggests pattern usage
+- The user asks whether a specific pattern fits a design problem
+- The code needs a clearer extension point, substitution model, or creation boundary
+- A refactor is moving from rigid conditionals or duplicated workflows toward a stable design seam
+- You need pattern-specific implementation guidance after deciding that plain composition is not enough
 
----
+## When Not to Use
+- A simple conditional, constructor, helper method, or composition already solves the problem clearly
+- The task is mostly code cleanup, naming, or readability — use `clean-code`
+- The decision is mostly about Spring layering, dependency injection, controllers, or service boundaries — use `spring-boot-patterns`
+- The problem is system-level architecture or service boundaries rather than class-level structure — use `java-architect`
 
-## Quick Reference: When to Use What
+## Reference Guide
 
-| Problem | Pattern |
-|---------|---------|
-| Complex object construction | **Builder** |
-| Create objects without specifying class | **Factory** |
-| Multiple algorithms, swap at runtime | **Strategy** |
-| Add behavior without changing class | **Decorator** |
-| Notify multiple objects of changes | **Observer** |
-| Ensure single instance | **Singleton** |
-| Convert incompatible interfaces | **Adapter** |
-| Define algorithm skeleton | **Template Method** |
+| Topic | Reference | Load When |
+|------|-----------|-----------|
+| Builder, Factory, Singleton | `references/creational.md` | Choosing how objects should be created or assembled |
+| Strategy, Observer, Template Method | `references/behavioral.md` | Choosing how behavior varies, events propagate, or workflows differ |
+| Decorator, Adapter | `references/structural.md` | Wrapping behavior or integrating mismatched interfaces |
+| Sealed interfaces, records, Spring events | `references/java-modern-patterns.md` | Preferring modern Java/Spring alternatives over classic GoF forms |
+| Failure modes and overuse | `references/gotchas.md` | Avoiding pattern cargo culting or framework-hostile designs |
 
----
+## Pattern Selection Ladder
 
-## Creational Patterns
+1. **Can a plain method, constructor, or composition solve this cleanly?** Stop there.
+2. **Is object creation the real problem?** Consider Builder or Factory.
+3. **Is runtime behavior swapping the real problem?** Consider Strategy.
+4. **Is behavior wrapping the same abstraction?** Consider Decorator.
+5. **Is interface mismatch the issue?** Consider Adapter.
+6. **Is event fan-out or callback notification the issue?** Consider Observer or Spring events.
+7. **Do you just need one shared Spring-managed component?** Prefer Spring singleton scope over a manual Singleton pattern.
 
-### Builder
+## Quick Mapping
 
-**Use when:** Object has many parameters, some optional.
+| Situation | Default Choice | Prefer Instead Of |
+|-----------|----------------|-------------------|
+| Many optional constructor parameters | Builder | Telescoping constructors |
+| Several implementations behind one use case | Strategy | Large `switch` blocks |
+| Type-based object creation | Factory | Repeated `new` logic spread across callers |
+| Add cross-cutting behavior while preserving interface | Decorator | Deep inheritance hierarchies |
+| Integrate incompatible third-party or legacy API | Adapter | Contaminating domain code with foreign interface details |
+| Publish domain/application events | Observer / Spring events | Tight direct coupling across many listeners |
 
+## Constraints
+
+### MUST DO
+
+| Rule | Preferred Pattern |
+|------|-------------------|
+| Start with the simplest design that preserves clarity | Plain composition before GoF patterns |
+| Tie the pattern to one real pressure | creation, variation, wrapping, adaptation, or fan-out |
+| Keep Spring idioms in mind | Use DI, bean scopes, and events instead of manual infrastructure patterns when appropriate |
+| Make the extension seam obvious | Small interface, focused abstraction, narrow responsibility |
+
+### MUST NOT DO
+- Do not introduce a pattern just because the name sounds impressive
+- Do not use Singleton where Spring dependency injection already manages lifecycle cleanly
+- Do not use Template Method when Strategy or composition keeps coupling lower
+- Do not build factories when the concrete type is already obvious at the call site
+- Do not create deep decorator or observer chains that are harder to debug than the original code
+
+## Gotchas
+
+- Pattern overuse is worse than a missing pattern. The first question is always whether a simpler shape is enough.
+- In Spring applications, manual Singleton and Observer implementations are often weaker than built-in bean scopes and event publishing.
+- Replacing one `switch` with a large registry can still be over-engineering if the set of cases is tiny and stable.
+- Template Method often looks elegant but can freeze behavior into inheritance when composition would evolve more safely.
+- Decorator and Observer chains become opaque quickly; keep tracing and testability in mind before stacking them.
+
+## Minimal Examples
+
+### Strategy over branching
 ```java
-// ❌ Telescoping constructor antipattern
-public class User {
-    public User(String name) { }
-    public User(String name, String email) { }
-    public User(String name, String email, int age) { }
-    public User(String name, String email, int age, String phone) { }
-    // ... explosion of constructors
+public interface PricingStrategy {
+    BigDecimal calculate(Order order);
 }
 
-// ✅ Builder pattern
-public class User {
-    private final String name;      // required
-    private final String email;     // required
-    private final int age;          // optional
-    private final String phone;     // optional
-    private final String address;   // optional
+public final class StandardPricingStrategy implements PricingStrategy {
+    @Override
+    public BigDecimal calculate(Order order) {
+        return order.subtotal();
+    }
+}
 
-    private User(Builder builder) {
+public final class PromotionalPricingStrategy implements PricingStrategy {
+    @Override
+    public BigDecimal calculate(Order order) {
+        return order.subtotal().multiply(new BigDecimal("0.90"));
+    }
+}
+```
+
+### Builder for complex creation
+```java
+public final class ReportRequest {
+
+    private final String name;
+    private final Locale locale;
+    private final boolean includeCharts;
+
+    private ReportRequest(Builder builder) {
         this.name = builder.name;
-        this.email = builder.email;
-        this.age = builder.age;
-        this.phone = builder.phone;
-        this.address = builder.address;
+        this.locale = builder.locale;
+        this.includeCharts = builder.includeCharts;
     }
 
-    public static Builder builder(String name, String email) {
-        return new Builder(name, email);
+    public static Builder builder(String name) {
+        return new Builder(name);
     }
 
-    public static class Builder {
-        // Required
+    public static final class Builder {
         private final String name;
-        private final String email;
-        // Optional with defaults
-        private int age = 0;
-        private String phone = "";
-        private String address = "";
+        private Locale locale = Locale.ENGLISH;
+        private boolean includeCharts;
 
-        private Builder(String name, String email) {
+        private Builder(String name) {
             this.name = name;
-            this.email = email;
         }
 
-        public Builder age(int age) {
-            this.age = age;
+        public Builder locale(Locale locale) {
+            this.locale = locale;
             return this;
         }
 
-        public Builder phone(String phone) {
-            this.phone = phone;
+        public Builder includeCharts(boolean includeCharts) {
+            this.includeCharts = includeCharts;
             return this;
         }
 
-        public Builder address(String address) {
-            this.address = address;
-            return this;
-        }
-
-        public User build() {
-            return new User(this);
+        public ReportRequest build() {
+            return new ReportRequest(this);
         }
     }
 }
-
-// Usage
-User user = User.builder("John", "john@example.com")
-    .age(30)
-    .phone("+1234567890")
-    .build();
 ```
 
-> **Note:** This project does not use Lombok. Use the manual Builder pattern shown above.
-
----
-
-### Factory Method
-
-**Use when:** Need to create objects without specifying exact class.
-
-```java
-// ✅ Factory Method pattern
-public interface Notification {
-    void send(String message);
-}
-
-public class EmailNotification implements Notification {
-    @Override
-    public void send(String message) {
-        System.out.println("Email: " + message);
-    }
-}
-
-public class SmsNotification implements Notification {
-    @Override
-    public void send(String message) {
-        System.out.println("SMS: " + message);
-    }
-}
-
-public class PushNotification implements Notification {
-    @Override
-    public void send(String message) {
-        System.out.println("Push: " + message);
-    }
-}
-
-// Factory
-public class NotificationFactory {
-
-    public static Notification create(String type) {
-        return switch (type.toUpperCase()) {
-            case "EMAIL" -> new EmailNotification();
-            case "SMS" -> new SmsNotification();
-            case "PUSH" -> new PushNotification();
-            default -> throw new IllegalArgumentException("Unknown type: " + type);
-        };
-    }
-}
-
-// Usage
-Notification notification = NotificationFactory.create("EMAIL");
-notification.send("Hello!");
-```
-
-**With Spring (preferred):**
-```java
-public interface NotificationSender {
-    void send(String message);
-    String getType();
-}
-
-@Component
-public class EmailSender implements NotificationSender {
-    @Override public void send(String message) { /* ... */ }
-    @Override public String getType() { return "EMAIL"; }
-}
-
-@Component
-public class SmsSender implements NotificationSender {
-    @Override public void send(String message) { /* ... */ }
-    @Override public String getType() { return "SMS"; }
-}
-
-@Component
-public class NotificationFactory {
-    private final Map<String, NotificationSender> senders;
-
-    public NotificationFactory(List<NotificationSender> senderList) {
-        this.senders = senderList.stream()
-            .collect(Collectors.toMap(
-                NotificationSender::getType,
-                Function.identity()
-            ));
-    }
-
-    public NotificationSender getSender(String type) {
-        return Optional.ofNullable(senders.get(type))
-            .orElseThrow(() -> new IllegalArgumentException("Unknown: " + type));
-    }
-}
-```
-
----
-
-### Singleton
-
-**Use when:** Exactly one instance needed (use sparingly!).
-
-```java
-// ✅ Modern singleton (enum-based, thread-safe)
-public enum DatabaseConnection {
-    INSTANCE;
-
-    private Connection connection;
-
-    DatabaseConnection() {
-        // Initialize connection
-    }
-
-    public Connection getConnection() {
-        return connection;
-    }
-}
-
-// Usage
-Connection conn = DatabaseConnection.INSTANCE.getConnection();
-```
-
-**With Spring (preferred):**
-```java
-@Component  // Default scope is singleton
-public class DatabaseConnection {
-    // Spring manages single instance
-}
-```
-
-**Warning:** Singletons can be problematic:
-- Hard to test (global state)
-- Hidden dependencies
-- Consider dependency injection instead
-
----
-
-## Behavioral Patterns
-
-### Strategy
-
-**Use when:** Multiple algorithms for same operation, need to swap at runtime.
-
-```java
-// ✅ Strategy pattern
-public interface PaymentStrategy {
-    void pay(BigDecimal amount);
-}
-
-public class CreditCardPayment implements PaymentStrategy {
-    private final String cardNumber;
-
-    public CreditCardPayment(String cardNumber) {
-        this.cardNumber = cardNumber;
-    }
-
-    @Override
-    public void pay(BigDecimal amount) {
-        System.out.println("Paid " + amount + " with card " + cardNumber);
-    }
-}
-
-public class PayPalPayment implements PaymentStrategy {
-    private final String email;
-
-    public PayPalPayment(String email) {
-        this.email = email;
-    }
-
-    @Override
-    public void pay(BigDecimal amount) {
-        System.out.println("Paid " + amount + " via PayPal: " + email);
-    }
-}
-
-public class CryptoPayment implements PaymentStrategy {
-    private final String walletAddress;
-
-    public CryptoPayment(String walletAddress) {
-        this.walletAddress = walletAddress;
-    }
-
-    @Override
-    public void pay(BigDecimal amount) {
-        System.out.println("Paid " + amount + " to wallet: " + walletAddress);
-    }
-}
-
-// Context
-public class ShoppingCart {
-    private PaymentStrategy paymentStrategy;
-
-    public void setPaymentStrategy(PaymentStrategy strategy) {
-        this.paymentStrategy = strategy;
-    }
-
-    public void checkout(BigDecimal total) {
-        paymentStrategy.pay(total);
-    }
-}
-
-// Usage
-ShoppingCart cart = new ShoppingCart();
-cart.setPaymentStrategy(new CreditCardPayment("4111-1111-1111-1111"));
-cart.checkout(new BigDecimal("99.99"));
-
-// Change strategy at runtime
-cart.setPaymentStrategy(new PayPalPayment("user@example.com"));
-cart.checkout(new BigDecimal("49.99"));
-```
-
-**With Java 8+ (functional):**
-```java
-// Strategy as functional interface
-@FunctionalInterface
-public interface PaymentStrategy {
-    void pay(BigDecimal amount);
-}
-
-// Usage with lambdas
-PaymentStrategy creditCard = amount ->
-    System.out.println("Card payment: " + amount);
-
-PaymentStrategy paypal = amount ->
-    System.out.println("PayPal payment: " + amount);
-
-cart.setPaymentStrategy(creditCard);
-```
-
----
-
-### Observer
-
-**Use when:** Objects need to be notified of changes in another object.
-
-```java
-// ✅ Observer pattern (modern Java)
-public interface OrderObserver {
-    void onOrderPlaced(Order order);
-}
-
-public class OrderService {
-    private final List<OrderObserver> observers = new ArrayList<>();
-
-    public void addObserver(OrderObserver observer) {
-        observers.add(observer);
-    }
-
-    public void removeObserver(OrderObserver observer) {
-        observers.remove(observer);
-    }
-
-    public void placeOrder(Order order) {
-        // Process order
-        saveOrder(order);
-
-        // Notify all observers
-        observers.forEach(observer -> observer.onOrderPlaced(order));
-    }
-}
-
-// Observers
-public class InventoryService implements OrderObserver {
-    @Override
-    public void onOrderPlaced(Order order) {
-        // Reduce inventory
-        order.getItems().forEach(item ->
-            reduceStock(item.getProductId(), item.getQuantity())
-        );
-    }
-}
-
-public class EmailNotificationService implements OrderObserver {
-    @Override
-    public void onOrderPlaced(Order order) {
-        sendConfirmationEmail(order.getCustomerEmail(), order);
-    }
-}
-
-public class AnalyticsService implements OrderObserver {
-    @Override
-    public void onOrderPlaced(Order order) {
-        trackOrderEvent(order);
-    }
-}
-
-// Setup
-OrderService orderService = new OrderService();
-orderService.addObserver(new InventoryService());
-orderService.addObserver(new EmailNotificationService());
-orderService.addObserver(new AnalyticsService());
-```
-
-**With Spring Events (preferred):**
-```java
-// Event
-public record OrderPlacedEvent(Order order) {}
-
-// Publisher
-@Service
-public class OrderService {
-    private final ApplicationEventPublisher eventPublisher;
-
-    public void placeOrder(Order order) {
-        saveOrder(order);
-        eventPublisher.publishEvent(new OrderPlacedEvent(order));
-    }
-}
-
-// Listeners (observers)
-@Component
-public class InventoryListener {
-    @EventListener
-    public void handleOrderPlaced(OrderPlacedEvent event) {
-        // Reduce inventory
-    }
-}
-
-@Component
-public class EmailListener {
-    @EventListener
-    public void handleOrderPlaced(OrderPlacedEvent event) {
-        // Send email
-    }
-
-    @EventListener
-    @Async  // Async processing
-    public void handleOrderPlacedAsync(OrderPlacedEvent event) {
-        // Send email asynchronously
-    }
-}
-```
-
----
-
-### Template Method
-
-**Use when:** Define algorithm skeleton, let subclasses fill in steps.
-
-```java
-// ✅ Template Method pattern
-public abstract class DataProcessor {
-
-    // Template method - defines the algorithm
-    public final void process() {
-        readData();
-        processData();
-        writeData();
-        if (shouldNotify()) {
-            notifyCompletion();
-        }
-    }
-
-    // Steps to be implemented by subclasses
-    protected abstract void readData();
-    protected abstract void processData();
-    protected abstract void writeData();
-
-    // Hook - optional override
-    protected boolean shouldNotify() {
-        return true;
-    }
-
-    protected void notifyCompletion() {
-        System.out.println("Processing completed!");
-    }
-}
-
-public class CsvDataProcessor extends DataProcessor {
-    @Override
-    protected void readData() {
-        System.out.println("Reading CSV file...");
-    }
-
-    @Override
-    protected void processData() {
-        System.out.println("Processing CSV data...");
-    }
-
-    @Override
-    protected void writeData() {
-        System.out.println("Writing to database...");
-    }
-}
-
-public class ApiDataProcessor extends DataProcessor {
-    @Override
-    protected void readData() {
-        System.out.println("Fetching from API...");
-    }
-
-    @Override
-    protected void processData() {
-        System.out.println("Transforming API response...");
-    }
-
-    @Override
-    protected void writeData() {
-        System.out.println("Writing to cache...");
-    }
-
-    @Override
-    protected boolean shouldNotify() {
-        return false;  // Override hook
-    }
-}
-
-// Usage
-DataProcessor csvProcessor = new CsvDataProcessor();
-csvProcessor.process();
-
-DataProcessor apiProcessor = new ApiDataProcessor();
-apiProcessor.process();
-```
-
----
-
-## Structural Patterns
-
-### Decorator
-
-**Use when:** Add behavior dynamically without modifying existing classes.
-
-```java
-// ✅ Decorator pattern
-public interface Coffee {
-    String getDescription();
-    BigDecimal getCost();
-}
-
-public class SimpleCoffee implements Coffee {
-    @Override
-    public String getDescription() {
-        return "Coffee";
-    }
-
-    @Override
-    public BigDecimal getCost() {
-        return new BigDecimal("2.00");
-    }
-}
-
-// Base decorator
-public abstract class CoffeeDecorator implements Coffee {
-    protected final Coffee coffee;
-
-    public CoffeeDecorator(Coffee coffee) {
-        this.coffee = coffee;
-    }
-
-    @Override
-    public String getDescription() {
-        return coffee.getDescription();
-    }
-
-    @Override
-    public BigDecimal getCost() {
-        return coffee.getCost();
-    }
-}
-
-// Concrete decorators
-public class MilkDecorator extends CoffeeDecorator {
-    public MilkDecorator(Coffee coffee) {
-        super(coffee);
-    }
-
-    @Override
-    public String getDescription() {
-        return coffee.getDescription() + ", Milk";
-    }
-
-    @Override
-    public BigDecimal getCost() {
-        return coffee.getCost().add(new BigDecimal("0.50"));
-    }
-}
-
-public class SugarDecorator extends CoffeeDecorator {
-    public SugarDecorator(Coffee coffee) {
-        super(coffee);
-    }
-
-    @Override
-    public String getDescription() {
-        return coffee.getDescription() + ", Sugar";
-    }
-
-    @Override
-    public BigDecimal getCost() {
-        return coffee.getCost().add(new BigDecimal("0.20"));
-    }
-}
-
-public class WhippedCreamDecorator extends CoffeeDecorator {
-    public WhippedCreamDecorator(Coffee coffee) {
-        super(coffee);
-    }
-
-    @Override
-    public String getDescription() {
-        return coffee.getDescription() + ", Whipped Cream";
-    }
-
-    @Override
-    public BigDecimal getCost() {
-        return coffee.getCost().add(new BigDecimal("0.70"));
-    }
-}
-
-// Usage - compose decorators
-Coffee coffee = new SimpleCoffee();
-coffee = new MilkDecorator(coffee);
-coffee = new SugarDecorator(coffee);
-coffee = new WhippedCreamDecorator(coffee);
-
-System.out.println(coffee.getDescription());  // Coffee, Milk, Sugar, Whipped Cream
-System.out.println(coffee.getCost());         // 3.40
-```
-
-**Java I/O uses Decorator:**
-```java
-// Classic example from Java
-BufferedReader reader = new BufferedReader(
-    new InputStreamReader(
-        new FileInputStream("file.txt")
-    )
-);
-```
-
----
-
-### Adapter
-
-**Use when:** Make incompatible interfaces work together.
-
-```java
-// ✅ Adapter pattern
-
-// Existing interface our code uses
-public interface MediaPlayer {
-    void play(String filename);
-}
-
-// Legacy/third-party interface
-public class LegacyAudioPlayer {
-    public void playMp3(String filename) {
-        System.out.println("Playing MP3: " + filename);
-    }
-}
-
-public class AdvancedVideoPlayer {
-    public void playMp4(String filename) {
-        System.out.println("Playing MP4: " + filename);
-    }
-
-    public void playAvi(String filename) {
-        System.out.println("Playing AVI: " + filename);
-    }
-}
-
-// Adapters
-public class Mp3PlayerAdapter implements MediaPlayer {
-    private final LegacyAudioPlayer legacyPlayer = new LegacyAudioPlayer();
-
-    @Override
-    public void play(String filename) {
-        legacyPlayer.playMp3(filename);
-    }
-}
-
-public class VideoPlayerAdapter implements MediaPlayer {
-    private final AdvancedVideoPlayer videoPlayer = new AdvancedVideoPlayer();
-
-    @Override
-    public void play(String filename) {
-        if (filename.endsWith(".mp4")) {
-            videoPlayer.playMp4(filename);
-        } else if (filename.endsWith(".avi")) {
-            videoPlayer.playAvi(filename);
-        }
-    }
-}
-
-// Usage
-MediaPlayer mp3Player = new Mp3PlayerAdapter();
-mp3Player.play("song.mp3");
-
-MediaPlayer videoPlayer = new VideoPlayerAdapter();
-videoPlayer.play("movie.mp4");
-```
-
----
-
-### Sealed Interface + Records (Java 17+)
-
-**Use when:** Domain has a fixed set of types (discriminated union).
-
-```java
-// ✅ Sealed interface — compiler enforces exhaustive handling
-public sealed interface PaymentMethod permits CreditCard, BankTransfer, Wallet {
-    BigDecimal amount();
-}
-
-public record CreditCard(String cardNumber, BigDecimal amount) implements PaymentMethod {}
-public record BankTransfer(String iban, BigDecimal amount) implements PaymentMethod {}
-public record Wallet(String walletId, BigDecimal amount) implements PaymentMethod {}
-
-// Exhaustive switch (Java 21)
-public String describe(PaymentMethod method) {
-    return switch (method) {
-        case CreditCard cc -> "Card ending " + cc.cardNumber().substring(cc.cardNumber().length() - 4);
-        case BankTransfer bt -> "Transfer to " + bt.iban();
-        case Wallet w -> "Wallet " + w.walletId();
-    };
-}
-```
-
-### Event-Driven Pattern (Spring)
-
-**Use when:** Decouple components, trigger side effects without direct dependency.
-
-```java
-// Event
-public record OrderCreatedEvent(Long orderId, String customerEmail, BigDecimal total) {}
-
-// Publisher
-@Service
-public class OrderService {
-    private final ApplicationEventPublisher eventPublisher;
-
-    public OrderService(ApplicationEventPublisher eventPublisher) {
-        this.eventPublisher = eventPublisher;
-    }
-
-    @Transactional
-    public Order createOrder(CreateOrderRequest request) {
-        Order order = // ... save order
-        eventPublisher.publishEvent(new OrderCreatedEvent(order.getId(), request.email(), order.getTotal()));
-        return order;
-    }
-}
-
-// Listener (decoupled)
-@Component
-public class OrderNotificationListener {
-    private static final Logger log = LoggerFactory.getLogger(OrderNotificationListener.class);
-
-    @EventListener
-    public void onOrderCreated(OrderCreatedEvent event) {
-        log.info("Sending confirmation email for order {}", event.orderId());
-        // send email...
-    }
-}
-```
-
----
-
-## Pattern Selection Guide
-
-| Situation | Consider |
-|-----------|----------|
-| Object creation is complex | Builder, Factory |
-| Need to add features dynamically | Decorator |
-| Multiple implementations of algorithm | Strategy |
-| React to state changes | Observer |
-| Integrate with legacy code | Adapter |
-| Common algorithm, varying steps | Template Method |
-| Need single instance | Singleton (use sparingly) |
-
----
-
-## Anti-Patterns to Avoid
-
-| Anti-Pattern | Problem | Better Approach |
-|--------------|---------|-----------------|
-| Singleton abuse | Global state, hard to test | Dependency Injection |
-| Factory everywhere | Over-engineering | Simple `new` if type is known |
-| Deep decorator chains | Hard to debug | Keep chains short, consider composition |
-| Observer with many events | Spaghetti notifications | Event bus, clear event hierarchy |
-
----
-
-## Related Skills
-
-- `solid-principles` - Design principles that patterns help implement
-- `clean-code` - Code-level best practices
-- `spring-boot-patterns` - Spring-specific implementations
+## What to Verify
+- The pattern solves a real design pressure, not hypothetical future flexibility
+- The abstraction is smaller and clearer than the code it replaced
+- Spring/framework features are not being reimplemented manually
+- Tests can exercise the seam without excessive setup or global state
+
+## See References
+- `references/creational.md` for Builder, Factory, and Singleton guidance
+- `references/behavioral.md` for Strategy, Observer, and Template Method guidance
+- `references/structural.md` for Decorator and Adapter guidance
+- `references/java-modern-patterns.md` for sealed interfaces, records, and Spring-native alternatives
+- `references/gotchas.md` for common failure modes and overuse patterns

@@ -13,11 +13,12 @@ You are the primary Spring Boot engineer for this project. Generate production-q
 2. Load relevant skills for detailed guidance:
    - `spring-boot-engineer` skill — Quick-start templates, constraints
    - `spring-boot-patterns` skill — Project structure, layer patterns
+   - `maven-master` skill — Parent POM, child modules, module-aware build rules
    - `jpa-patterns` skill — Data access, N+1 prevention
    - `api-contract-review` skill — REST API design
-3. Implement the feature following the layered pattern: Entity → Repository → Service → Controller → DTO → Tests
-4. Run `./mvnw compile` to verify compilation
-5. Run `./mvnw test` to verify all tests pass
+3. Implement the feature inside the right Maven module following the layered pattern: Entity → Repository/DAO → Service → Controller → DTO → Tests
+4. Run `./mvnw -pl <module> -am compile` (or root `./mvnw compile`) to verify compilation
+5. Run `./mvnw -pl <module> -am test` (or root `./mvnw test`) to verify tests pass
 6. Update `README.md` if APIs or configuration changed
 
 ## Project Rules (non-negotiable)
@@ -26,19 +27,20 @@ You are the primary Spring Boot engineer for this project. Generate production-q
 - **Logger**: `private static final Logger log = LoggerFactory.getLogger(MyClass.class);`
 - **Base package**: `vn.lukepham.projects`
 - **Constructor injection** only — no `@Autowired` on fields
+- **Service/DAO convention**: prefer `XxxService` + `XxxServiceImpl`, and `XxxDao` + `XxxDaoImpl` for handwritten data-access abstractions
 - **DTOs** for all API requests/responses — never expose entities
 - **Records** for DTOs: `public record CreateUserRequest(@NotBlank String name, @Email String email) {}`
 - **API versioning**: `/api/v1/...`
 - **Transactions**: `@Transactional(readOnly = true)` at class level on services, `@Transactional` on write methods
 - **Testing**: both positive and negative test cases required
-- **Maven**: artifact name = parent directory name, semantic versioning
+- **Maven**: root reactor artifact = parent directory name, child modules use explicit suffix-based names, semantic versioning stays consistent across the reactor
 
 ## Code Generation Template
 
 For each new feature, generate:
 1. `model/` — Entity with JPA annotations, explicit getters/setters, equals/hashCode on business key
 2. `repository/` — Spring Data JPA interface
-3. `service/` — Service class with constructor injection, `@Transactional`
+3. `service/` — Service interface + `Impl` class with constructor injection, `@Transactional`
 4. `controller/` — `@RestController` with `@Valid` on request bodies, proper HTTP status codes
 5. `dto/request/` — Record with Bean Validation annotations
 6. `dto/response/` — Record mapping from entity

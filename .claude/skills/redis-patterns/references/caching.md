@@ -11,34 +11,26 @@ public class CacheConfig {
 
     @Bean
     public RedisCacheConfiguration defaultCacheConfig() {
-        ObjectMapper objectMapper = new ObjectMapper()
-            .findAndRegisterModules()
-            .activateDefaultTyping(
-                LaissezFaireSubTypeValidator.instance,
-                ObjectMapper.DefaultTyping.NON_FINAL
-            );
-
         return RedisCacheConfiguration.defaultCacheConfig()
             .entryTtl(DEFAULT_TTL)
             .disableCachingNullValues()
             .serializeKeysWith(RedisSerializationContext.SerializationPair
                 .fromSerializer(new StringRedisSerializer()))
             .serializeValuesWith(RedisSerializationContext.SerializationPair
-                .fromSerializer(new GenericJackson2JsonRedisSerializer(objectMapper)));
+                .fromSerializer(new GenericJackson2JsonRedisSerializer()));
     }
 
     @Bean
-    public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer() {
+    public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer(
+        RedisCacheConfiguration defaultCacheConfig
+    ) {
         return builder -> builder
             .withCacheConfiguration("products",
-                RedisCacheConfiguration.defaultCacheConfig()
-                    .entryTtl(Duration.ofMinutes(10)))
+                defaultCacheConfig.entryTtl(Duration.ofMinutes(10)))
             .withCacheConfiguration("users",
-                RedisCacheConfiguration.defaultCacheConfig()
-                    .entryTtl(Duration.ofMinutes(5)))
+                defaultCacheConfig.entryTtl(Duration.ofMinutes(5)))
             .withCacheConfiguration("sessions",
-                RedisCacheConfiguration.defaultCacheConfig()
-                    .entryTtl(Duration.ofMinutes(30)));
+                defaultCacheConfig.entryTtl(Duration.ofMinutes(30)));
     }
 
     @Bean
@@ -52,6 +44,13 @@ public class CacheConfig {
     }
 }
 ```
+
+## Safe Serialization Defaults
+
+- Do **not** enable permissive Jackson default typing for Redis cache values.
+- Prefer `GenericJackson2JsonRedisSerializer()` when cache values stay simple and controlled.
+- Prefer typed serializers or dedicated caches per value type when the cache shape is known in advance.
+- Treat cache payloads as untrusted input when they can survive deploys, version changes, or shared-environment access.
 
 ## @Cacheable Patterns
 
@@ -168,20 +167,25 @@ Prefer SpEL `key = "#id"` for simple cases. Use a custom `KeyGenerator` when you
 
 **Mitigation with distributed lock:**
 
+Prefer the dedicated `RedisDistributedLock` pattern from `references/data-structures.md` so lock ownership is token-based and safe to release.
+
 ```java
 @Service
 public class ProductService {
 
     private final ProductRepository productRepository;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisDistributedLock distributedLock;
     private static final Duration LOCK_TTL = Duration.ofSeconds(5);
 
     public ProductService(
         ProductRepository productRepository,
-        RedisTemplate<String, Object> redisTemplate
+        RedisTemplate<String, Object> redisTemplate,
+        RedisDistributedLock distributedLock
     ) {
         this.productRepository = productRepository;
         this.redisTemplate = redisTemplate;
+        this.distributedLock = distributedLock;
     }
 
     public ProductResponse findByIdWithStampedeProtection(UUID id) {
@@ -195,10 +199,9 @@ public class ProductService {
         }
 
         // 2. Acquire lock — only one thread rebuilds the cache
-        Boolean locked = redisTemplate.opsForValue()
-            .setIfAbsent(lockKey, "1", LOCK_TTL);
+        Optional<String> token = distributedLock.tryLock(lockKey, LOCK_TTL);
 
-        if (Boolean.TRUE.equals(locked)) {
+        if (token.isPresent()) {
             try {
                 ProductResponse response = productRepository.findById(id)
                     .map(ProductResponse::from)
@@ -206,7 +209,7 @@ public class ProductService {
                 redisTemplate.opsForValue().set(cacheKey, response, Duration.ofMinutes(10));
                 return response;
             } finally {
-                redisTemplate.delete(lockKey);
+                distributedLock.unlock(lockKey, token.get());
             }
         }
 
@@ -225,6 +228,8 @@ public class ProductService {
 ```
 
 For high-traffic scenarios consider **probabilistic early expiration (PER)**: re-compute cache slightly before actual expiry with increasing probability as expiry approaches.
+
+Do not recreate an ad-hoc lock with `setIfAbsent(..., "1", ttl)` plus `delete(...)`; that pattern can release another caller's lock and drifts away from the safer token-based lock shown in `references/data-structures.md`.
 
 ## Cache-aside vs Write-through
 
@@ -266,3 +271,9 @@ public ProductResponse findById(UUID id) { ... }
 ```
 
 The read method is called **after** the write transaction has committed, so the cache is always populated with committed data.
+
+## Gotchas
+
+- Derive per-cache TTL configs from the already-customized `RedisCacheConfiguration` bean; rebuilding from `defaultCacheConfig()` can silently revert serializer choices.
+- Token-based distributed locks matter even in cache-stampede protection; `setIfAbsent(..., "1", ttl)` plus `delete(...)` can release another caller's lock.
+- `@Cacheable` on write paths can populate cache entries before the transaction commits; prefer transactional writes plus eviction or post-commit reads.

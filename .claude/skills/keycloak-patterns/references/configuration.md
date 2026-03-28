@@ -172,3 +172,5 @@ public class InventoryClient {
 | `iat` | Token issued at (epoch seconds) | `jwt.getIssuedAt()` |
 
 > Always use `sub` as the stable user identifier in your database — `preferred_username` and `email` can change.
+
+For Spring Security resource servers, `JwtAuthenticationToken#getName()` defaults to the token's `sub` claim unless you deliberately replace the principal-name strategy. That means `authentication.name` can align with `sub`, but only as long as you keep that default mapping explicit.

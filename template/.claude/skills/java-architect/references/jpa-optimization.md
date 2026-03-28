@@ -3,7 +3,7 @@
 ## Optimized Entity Design
 
 ```java
-package com.example.domain.model;
+package com.example.model;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.BatchSize;
@@ -86,9 +86,9 @@ public class User {
 ## Repository with Custom Queries
 
 ```java
-package com.example.domain.repository;
+package com.example.repository;
 
-import com.example.domain.model.User;
+import com.example.model.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -110,7 +110,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // Projection for read-only queries
     @Query("""
-        SELECT new com.example.application.dto.UserSummary(
+        SELECT new com.example.dto.UserSummary(
             u.id, u.email, u.username, COUNT(o)
         )
         FROM User u
@@ -159,7 +159,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 ## DTO Projections
 
 ```java
-package com.example.application.dto;
+package com.example.dto;
 
 // Interface-based projection
 public interface UserProjection {
@@ -193,7 +193,7 @@ List<UserProjection> users = userRepository.findByActive(true, UserProjection.cl
 ## Query Optimization Patterns
 
 ```java
-package com.example.application.service;
+package com.example.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -227,7 +227,7 @@ public class UserQueryService {
     // Pagination with total count
     public Page<UserSummary> findUsersPaged(Pageable pageable) {
         List<UserSummary> users = entityManager.createQuery("""
-            SELECT new com.example.application.dto.UserSummary(
+        SELECT new com.example.dto.UserSummary(
                 u.id, u.email, u.username, COUNT(o)
             )
             FROM User u
@@ -347,7 +347,7 @@ spring:
 <config xmlns="http://www.ehcache.org/v3">
     <cache alias="users">
         <key-type>java.lang.Long</key-type>
-        <value-type>com.example.domain.model.User</value-type>
+<value-type>com.example.model.User</value-type>
         <expiry>
             <ttl unit="minutes">10</ttl>
         </expiry>

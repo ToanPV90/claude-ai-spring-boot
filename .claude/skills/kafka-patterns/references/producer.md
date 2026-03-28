@@ -67,7 +67,7 @@ public class KafkaProducerConfig {
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
 
-        // Idempotent producer — guarantees exactly-once delivery within a session
+        // Idempotent producer — reduces duplicate publishes caused by retry/reorder within the same producer session
         config.put(ProducerConfig.ACKS_CONFIG, "all");
         config.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
         config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
@@ -90,10 +90,18 @@ public class KafkaProducerConfig {
 }
 ```
 
+Idempotent producer settings help prevent duplicate publishes caused by retry/reorder scenarios.
+They do **not** provide end-to-end exactly-once processing by themselves; consumer behavior,
+transaction boundaries, and downstream side effects still determine the real guarantee.
+
 ## Kafka Headers for Correlation
 
 Headers are the Kafka equivalent of HTTP headers — use them for cross-cutting concerns that
 should not pollute your domain event payload.
+
+> **Boundary:** `logging-patterns` owns MDC population, request correlation setup, and async MDC
+> propagation. This section only shows how to copy already-available MDC values into Kafka
+> headers for downstream transport.
 
 ```java
 private ProducerRecord<String, DomainEvent> withObservabilityHeaders(

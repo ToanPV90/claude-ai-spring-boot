@@ -1,508 +1,156 @@
 ---
 name: java-code-review
-description: Systematic code review for Java with null safety, exception handling, concurrency, and performance checks. Use when user says "review code", "check this PR", "code review", or before merging changes.
+description: Systematic review guidance for Java and Spring code with a focus on correctness, safety, maintainability, and review severity. Use when reviewing a Java PR, auditing implementation quality, or preparing code for merge.
+license: MIT
+metadata:
+  author: local
+  version: "1.1.0"
+  domain: backend
+  triggers:
+    - Java code review
+    - review PR
+    - review implementation
+    - pre-merge review
+    - null safety review
+    - concurrency review
+    - performance review
+    - code quality review
+    - Spring code review
+    - bug risk review
+  role: reviewer
+  scope: review
+  output-format: analysis
+  related-skills: clean-code, api-contract-review, tdd-guide, kafka-patterns, redis-patterns, keycloak-patterns, spring-boot-patterns, jpa-patterns, blaze-persistence
 ---
 
 # Java Code Review Skill
 
-Systematic code review checklist for Java projects.
+Decision guide for running a focused Java review that prioritizes correctness and risk before style or polish.
 
 ## When to Use
-- User says "review this code" / "check this PR" / "code review"
-- Before merging a PR
-- After implementing a feature
+- The user wants a Java PR, feature, or diff reviewed before merge
+- You need to identify bug risk, correctness gaps, maintainability issues, or unsafe defaults in Java or Spring code
+- A change looks fine at first glance but needs a systematic pass across nullability, exceptions, concurrency, resources, API shape, and framework usage
+- You want findings grouped by severity instead of a stream of disconnected nitpicks
 
-## Review Strategy
+## When Not to Use
+- The user wants an external second-opinion audit via Codex CLI — use `audit-codex`
+- The task is only HTTP/API contract semantics — use `api-contract-review`
+- The task is readability-first refactoring rather than a review pass — use `clean-code`
+- The work is implementation generation or framework setup rather than review — use `spring-boot-engineer` or `spring-boot-patterns`
 
-1. **Quick scan** - Understand intent, identify scope
-2. **Checklist pass** - Go through each category below
-3. **Summary** - List findings by severity (Critical → Minor)
+## Reference Guide
 
-## Output Format
+| Topic | Reference | Load When |
+|------|-----------|-----------|
+| Review flow, severity rules, finding shape | `references/review-workflow.md` | Starting a review and deciding how to report findings |
+| Null safety, exceptions, collections, resources, API design | `references/core-correctness.md` | Checking the basics that most often create bugs in normal Java code |
+| Concurrency and async correctness | `references/concurrency.md` | Reviewing shared state, executors, futures, locks, cancellation, or thread-safety assumptions |
+| Performance and modern Java pitfalls | `references/runtime-and-modern-java.md` | Reviewing throughput, virtual threads, records, Optional misuse, or other runtime concerns |
+| Spring-specific review smells and testing expectations | `references/spring-review.md` | Reviewing Spring services/controllers/config and framework-specific risks |
+| Specialized subsystem routing and review boundaries | `references/integration-routing.md` | Kafka, Redis, Keycloak, JPA, or contract-specific concerns appear in the diff |
+| Common review traps | `references/gotchas.md` | Avoiding noisy reviews, false positives, and duplicated specialty guidance |
+
+## Review Ladder
+
+1. **Can this change crash, corrupt data, or break security?** Start there.
+2. **Can it silently produce wrong behavior?** Review nullability, exceptions, and state transitions.
+3. **Can it race, deadlock, corrupt state, or ignore cancellation?** Review concurrency and resource handling.
+4. **Can it become hard to maintain or reason about?** Review API shape, naming, and coupling.
+5. **Is the issue actually owned by a specialized skill?** Route to `api-contract-review`, `jpa-patterns`, `kafka-patterns`, `redis-patterns`, or `keycloak-patterns`.
+
+## Severity Guide
+
+| Severity | Use For |
+|----------|---------|
+| Critical | Security vulnerability, data loss risk, production crash, broken authorization, or stop-ship concurrency bug |
+| High | Likely bug, race condition, unsafe async behavior, major performance problem, broken transaction or API behavior |
+| Medium | Maintainability issue, incorrect default, missing defensive check, review-worthy smell |
+| Low | Minor cleanup, style, or optional polish |
+
+## Concurrency Pass
+
+Ask these first:
+- **What threads can call this code?** Request threads, schedulers, `@Async`, executors, Kafka listeners, reactive workers?
+- **What state is shared across those calls?** Singleton fields, caches, collections, `ThreadLocal`, security/MDC context, mutable DTO/entity state?
+
+Red flags:
+- mutable state inside Spring singleton beans
+- shared collections or caches without a thread-safety strategy
+- `CompletableFuture` / executor code with dropped failures or unclear ownership
+- swallowed `InterruptedException` or missing cancellation/shutdown path
+- blocking work inside WebFlux/reactive or other non-blocking execution paths
+- locks or `synchronized` blocks wrapped around I/O, DB, or long-running work
+
+## Quick Mapping
+
+| Situation | Default Review Move | Prefer Instead Of |
+|-----------|---------------------|-------------------|
+| Risky code path | Review correctness before style | Leading with formatting feedback |
+| Hidden nullability | Check API contracts and call chains | Assuming tests already cover it |
+| Async or shared-state diff | Review thread safety, executor lifecycle, cancellation, and publication first | Treating async code like straight-line business logic |
+| Big Spring diff | Review boundary placement, transactions, and DTO/API leakage | Treating it like plain Java only |
+| Kafka/Redis/Keycloak change | Route to owning specialist skill | Keeping subsystem audits inline here |
+| Large diff | Group by severity and repeated pattern | One comment per repeated issue |
+
+## Constraints
+
+### MUST DO
+
+| Rule | Preferred Pattern |
+|------|-------------------|
+| Review for correctness before polish | Crash/data/security risks first |
+| Treat concurrency review as correctness work | Race, deadlock, stale visibility, and cancellation bugs are not “performance nits” |
+| Assume Spring singleton beans are shared by default | Mutable per-request state in a bean needs explicit confinement or synchronization |
+| Group repeated problems into one finding | One pattern-level comment beats ten duplicates |
+| Anchor findings in impact | Explain bug risk, not just rule violation |
+| Note good patterns when they materially reduce risk | Constructor injection, stable transactions, clear DTO boundary |
+| Route specialty concerns outward when another skill owns the depth | JPA, Kafka, Redis, Keycloak, API contracts |
+
+### MUST NOT DO
+- Do not flood the review with style-only comments while correctness issues remain
+- Do not report generic Java trivia with no concrete risk or maintainability impact
+- Do not duplicate subsystem checklists inline when specialized skills already exist
+- Do not recommend risky “fixes” that widen scope beyond the reviewed change without saying so
+- Do not treat tests as optional when the change introduces edge cases or risk-heavy behavior
+
+## Gotchas
+
+- A long review checklist is not the same as a useful review; prioritize findings by impact.
+- Concurrency bugs often look intermittent or "theoretical" until production timing makes them deterministic; call out the concrete failure mode.
+- In Spring, singleton beans are shared across requests by default; mutable bean fields should be treated as concurrent state unless confinement is explicit.
+- Some smells belong to other skills: entity/API leakage is often `spring-boot-patterns` or `jpa-patterns`, not just generic Java review.
+- A technically correct comment can still be low value if it ignores the actual diff risk.
+- Over-reporting nits trains teams to ignore real review feedback.
+- Framework-specific issues like Kafka ack semantics or Keycloak role mapping need specialist routing, not shallow one-line mentions.
+
+## Minimal Finding Format
 
 ```markdown
-## Code Review: [file/feature name]
+## Code Review: order service changes
 
-### Critical
-- [Issue description + line reference + suggestion]
+### High
+- `OrderService#create` can throw a null-driven failure when `request.customerId()` is absent; validate the input or reject it at the boundary before repository access.
 
-### Improvements
-- [Suggestion + rationale]
-
-### Minor/Style
-- [Nitpicks, optional improvements]
+### Medium
+- `OrderController` returns the entity directly, which leaks persistence shape into the API; map to a response DTO instead.
 
 ### Good Practices Observed
-- [Positive feedback - important for morale]
+- Constructor injection and a service-owned transaction boundary reduce hidden framework behavior.
 ```
 
----
-
-## Review Checklist
-
-### 1. Null Safety
-
-**Check for:**
-```java
-// ❌ NPE risk
-String name = user.getName().toUpperCase();
-
-// ✅ Safe
-String name = Optional.ofNullable(user.getName())
-    .map(String::toUpperCase)
-    .orElse("");
-
-// ✅ Also safe (early return)
-if (user.getName() == null) {
-    return "";
-}
-return user.getName().toUpperCase();
-```
-
-**Flags:**
-- Chained method calls without null checks
-- Missing `@Nullable` / `@NonNull` annotations on public APIs
-- `Optional.get()` without `isPresent()` check
-- Returning `null` from methods that could return `Optional` or empty collection
-
-**Suggest:**
-- Use `Optional` for return types that may be absent
-- Use `Objects.requireNonNull()` for constructor/method params
-- Return empty collections instead of null: `Collections.emptyList()`
-
-### 2. Exception Handling
-
-**Check for:**
-```java
-// ❌ Swallowing exceptions
-try {
-    process();
-} catch (Exception e) {
-    // silently ignored
-}
-
-// ❌ Catching too broad
-catch (Exception e) { }
-catch (Throwable t) { }
-
-// ❌ Losing stack trace
-catch (IOException e) {
-    throw new RuntimeException(e.getMessage());
-}
-
-// ✅ Proper handling
-catch (IOException e) {
-    log.error("Failed to process file: {}", filename, e);
-    throw new ProcessingException("File processing failed", e);
-}
-```
-
-**Flags:**
-- Empty catch blocks
-- Catching `Exception` or `Throwable` broadly
-- Losing original exception (not chaining)
-- Using exceptions for flow control
-- Checked exceptions leaking through API boundaries
-
-**Suggest:**
-- Log with context AND stack trace
-- Use specific exception types
-- Chain exceptions with `cause`
-- Consider custom exceptions for domain errors
-
-### 3. Collections & Streams
-
-**Check for:**
-```java
-// ❌ Modifying while iterating
-for (Item item : items) {
-    if (item.isExpired()) {
-        items.remove(item);  // ConcurrentModificationException
-    }
-}
-
-// ✅ Use removeIf
-items.removeIf(Item::isExpired);
-
-// ❌ Stream for simple operations
-list.stream().forEach(System.out::println);
-
-// ✅ Simple loop is cleaner
-for (Item item : list) {
-    System.out.println(item);
-}
-
-// ❌ Collecting to modify
-List<String> names = users.stream()
-    .map(User::getName)
-    .collect(Collectors.toList());
-names.add("extra");  // Might be immutable!
-
-// ✅ Explicit mutable list
-List<String> names = users.stream()
-    .map(User::getName)
-    .collect(Collectors.toCollection(ArrayList::new));
-```
-
-**Flags:**
-- Modifying collections during iteration
-- Overusing streams for simple operations
-- Assuming `Collectors.toList()` returns mutable list
-- Not using `List.of()`, `Set.of()`, `Map.of()` for immutable collections
-- Parallel streams without understanding implications
-
-**Suggest:**
-- `List.copyOf()` for defensive copies
-- `removeIf()` instead of iterator removal
-- Streams for transformations, loops for side effects
-
-### 4. Concurrency
-
-**Check for:**
-```java
-// ❌ Not thread-safe
-private Map<String, User> cache = new HashMap<>();
-
-// ✅ Thread-safe
-private Map<String, User> cache = new ConcurrentHashMap<>();
-
-// ❌ Check-then-act race condition
-if (!map.containsKey(key)) {
-    map.put(key, computeValue());
-}
-
-// ✅ Atomic operation
-map.computeIfAbsent(key, k -> computeValue());
-
-// ❌ Double-checked locking (broken without volatile)
-if (instance == null) {
-    synchronized(this) {
-        if (instance == null) {
-            instance = new Instance();
-        }
-    }
-}
-```
-
-**Flags:**
-- Shared mutable state without synchronization
-- Check-then-act patterns without atomicity
-- Missing `volatile` on shared variables
-- Synchronized on non-final objects
-- Thread-unsafe lazy initialization
-
-**Suggest:**
-- Prefer immutable objects
-- Use `java.util.concurrent` classes
-- `AtomicReference`, `AtomicInteger` for simple cases
-- Consider `@ThreadSafe` / `@NotThreadSafe` annotations
-
-### 5. Java Idioms
-
-**equals/hashCode:**
-```java
-// ❌ Only equals without hashCode
-@Override
-public boolean equals(Object o) { ... }
-// Missing hashCode!
-
-// ❌ Mutable fields in hashCode
-@Override
-public int hashCode() {
-    return Objects.hash(id, mutableField);  // Breaks HashMap
-}
-
-// ✅ Use immutable fields, implement both
-@Override
-public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof User user)) return false;
-    return Objects.equals(id, user.id);
-}
-
-@Override
-public int hashCode() {
-    return Objects.hash(id);
-}
-```
-
-**toString:**
-```java
-// ❌ Missing - hard to debug
-// No toString()
-
-// ❌ Including sensitive data
-return "User{password='" + password + "'}";
-
-// ✅ Useful for debugging
-@Override
-public String toString() {
-    return "User{id=" + id + ", name='" + name + "'}";
-}
-```
-
-**Builders:**
-```java
-// ✅ For classes with many optional parameters
-User user = User.builder()
-    .name("John")
-    .email("john@example.com")
-    .build();
-```
-
-**Flags:**
-- `equals` without `hashCode`
-- Mutable fields in `hashCode`
-- Missing `toString` on domain objects
-- Constructors with > 3-4 parameters (suggest builder)
-- Not using `instanceof` pattern matching (Java 16+)
-
-### 6. Resource Management
-
-**Check for:**
-```java
-// ❌ Resource leak
-FileInputStream fis = new FileInputStream(file);
-// ... might throw before close
-
-// ✅ Try-with-resources
-try (FileInputStream fis = new FileInputStream(file)) {
-    // ...
-}
-
-// ❌ Multiple resources, wrong order
-try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-    // FileWriter might not be closed if BufferedWriter fails
-}
-
-// ✅ Separate declarations
-try (FileWriter fw = new FileWriter(file);
-     BufferedWriter writer = new BufferedWriter(fw)) {
-    // Both properly closed
-}
-```
-
-**Flags:**
-- Not using try-with-resources for `Closeable`/`AutoCloseable`
-- Resources opened but not in try-with-resources
-- Database connections/statements not properly closed
-
-### 7. API Design
-
-**Check for:**
-```java
-// ❌ Boolean parameters
-process(data, true, false);  // What do these mean?
-
-// ✅ Use enums or builder
-process(data, ProcessMode.ASYNC, ErrorHandling.STRICT);
-
-// ❌ Returning null for "not found"
-public User findById(Long id) {
-    return users.get(id);  // null if not found
-}
-
-// ✅ Return Optional
-public Optional<User> findById(Long id) {
-    return Optional.ofNullable(users.get(id));
-}
-
-// ❌ Accepting null collections
-public void process(List<Item> items) {
-    if (items == null) items = Collections.emptyList();
-}
-
-// ✅ Require non-null, accept empty
-public void process(List<Item> items) {
-    Objects.requireNonNull(items, "items must not be null");
-}
-```
-
-**Flags:**
-- Boolean parameters (prefer enums)
-- Methods with > 3 parameters (consider parameter object)
-- Inconsistent null handling across similar methods
-- Missing validation on public API inputs
-
-### 8. Performance Considerations
-
-**Check for:**
-```java
-// ❌ String concatenation in loop
-String result = "";
-for (String s : strings) {
-    result += s;  // Creates new String each iteration
-}
-
-// ✅ StringBuilder
-StringBuilder sb = new StringBuilder();
-for (String s : strings) {
-    sb.append(s);
-}
-
-// ❌ Regex compilation in loop
-for (String line : lines) {
-    if (line.matches("pattern.*")) { }  // Compiles regex each time
-}
-
-// ✅ Pre-compiled pattern
-private static final Pattern PATTERN = Pattern.compile("pattern.*");
-for (String line : lines) {
-    if (PATTERN.matcher(line).matches()) { }
-}
-
-// ❌ N+1 in loops
-for (User user : users) {
-    List<Order> orders = orderRepo.findByUserId(user.getId());
-}
-
-// ✅ Batch fetch
-Map<Long, List<Order>> ordersByUser = orderRepo.findByUserIds(userIds);
-```
-
-**Flags:**
-- String concatenation in loops
-- Regex compilation in loops
-- N+1 query patterns
-- Creating objects in tight loops that could be reused
-- Not using primitive streams (`IntStream`, `LongStream`)
-
-### 9. Testing Hints
-
-**Suggest tests for:**
-- Null inputs
-- Empty collections
-- Boundary values
-- Exception cases
-- Concurrent access (if applicable)
-
----
-
-### 10. Modern Java (21+)
-
-**Virtual Threads:**
-```java
-// ❌ Pinning: synchronized blocks pin virtual threads to carrier
-synchronized (lock) {
-    httpClient.send(request);  // Blocks carrier thread!
-}
-
-// ✅ Use ReentrantLock with virtual threads
-private final ReentrantLock lock = new ReentrantLock();
-lock.lock();
-try {
-    httpClient.send(request);
-} finally {
-    lock.unlock();
-}
-```
-
-**Records misuse:**
-```java
-// ❌ Record used where mutability is needed
-public record UserSession(String userId, Instant lastAccess) {}
-// Can't update lastAccess!
-
-// ✅ Use class for mutable state, record for immutable data
-public record UserProfile(String name, String email) {}  // Immutable DTO ✓
-```
-
-**Sealed classes:**
-```java
-// ✅ Check: switch on sealed type should be exhaustive (no default needed)
-sealed interface Shape permits Circle, Rectangle {}
-// Compiler warns if a case is missing
-```
-
-**Optional pitfalls:**
-```java
-// ❌ Optional as method parameter
-public void process(Optional<String> name) { }
-
-// ❌ Optional as field
-private Optional<String> middleName;
-
-// ✅ Optional only for return types
-public Optional<User> findByEmail(String email) { }
-```
-
-### 11. Spring-Specific Smells
-
-**Flags:**
-- `@Autowired` on fields (use constructor injection)
-- Missing `@Transactional` on service methods that write
-- Circular dependencies (A → B → A)
-- `@Component` used where `@Service` / `@Repository` is appropriate
-- `@MockBean` usage (deprecated in Spring Boot 3.4+; use `@MockitoBean`)
-- Entity used as REST response (use DTOs)
-- `spring.jpa.hibernate.ddl-auto=create` in non-test profiles
-
----
-
-## 12. Kafka-Specific Review
-
-| Issue | Risk | Fix |
-|-------|------|-----|
-| No `DefaultErrorHandler` bean | Silent message loss on exception | Configure `DefaultErrorHandler` with `ExponentialBackOff` |
-| `enable-auto-commit: true` in YAML | At-most-once semantics (data loss) | Always `enable-auto-commit: false` + manual `Acknowledgment` |
-| `KafkaTemplate.send()` result ignored | Fire-and-forget — no error detection | Chain `.whenComplete((result, ex) -> ...)` on the `CompletableFuture` |
-| `@KafkaListener` + `@Transactional` on same method | Message acked before transaction commits | Separate acknowledgment from transaction: ack in listener, delegate to `@Transactional` service |
-| Missing `groupId` on `@KafkaListener` | Defaults to app name — fragile in multi-service deploys | Always set explicit `groupId` |
-| `DeadLetterPublishingRecoverer` without custom headers | Lost diagnostic context in DLT | Add original-topic, exception-class, exception-message headers to recoverer |
-| `SeekToCurrentErrorHandler` used | Deprecated since Spring Kafka 2.8 | Replace with `DefaultErrorHandler` |
-
-## 13. Redis-Specific Review
-
-| Issue | Risk | Fix |
-|-------|------|-----|
-| `@Cacheable` without TTL | Unbounded cache growth, stale data forever | Set `entryTtl` in `RedisCacheConfiguration` |
-| Missing `unless = "#result == null"` | Null result cached — future calls skip DB | Add `unless = "#result == null"` to all `@Cacheable` |
-| `JdkSerializationRedisSerializer` (default value serializer) | Binary format breaks rolling deployments | Use `GenericJackson2JsonRedisSerializer` |
-| `@Cacheable` on `@Transactional` method | Cache populated before transaction commits — stale read window | Put `@Cacheable` on read method, `@CacheEvict` on write method |
-| Missing `@CacheEvict` on update/delete | Stale cache after write — incorrect reads | Add `@CacheEvict(value="...", key="#id")` to all write methods |
-| `StringRedisTemplate` for non-String values | Silently calls `.toString()` — data corruption | Use typed `RedisTemplate<String, MyType>` with proper serializer |
-| No Redis circuit breaker | Redis outage takes down the application | Wrap Redis calls in `@CircuitBreaker` or use Spring Cache with fallback |
-
-## 14. Keycloak / OAuth2-Specific Review
-
-| Issue | Risk | Fix |
-|-------|------|-----|
-| Using `KeycloakWebSecurityConfigurerAdapter` | Removed in Keycloak 19+ — compile error | Migrate to `SecurityFilterChain` + `spring-boot-starter-oauth2-resource-server` |
-| Missing `JwtAuthenticationConverter` | All `hasRole()` checks silently return false | Add converter that extracts `realm_access.roles` with `ROLE_` prefix |
-| `hasAuthority("admin")` without `ROLE_` prefix | Never matches — security check always fails | Use `hasAuthority("ROLE_admin")` or `hasRole("admin")` (Spring adds prefix) |
-| `/users/{userId}` path param not verified against JWT `sub` | IDOR — user can access other users' data | Add `@PreAuthorize("#userId == authentication.name")` |
-| `@PreAuthorize` without `@EnableMethodSecurity` | Annotation silently ignored — no security enforcement | Add `@EnableMethodSecurity` to `@Configuration` class |
-| JWT stored in HTTP session | Defeats stateless architecture, session fixation risk | Use `SessionCreationPolicy.STATELESS` — no session |
-| `jwk-set-uri` instead of `issuer-uri` without reason | OIDC discovery skipped — issuer not validated | Prefer `issuer-uri` unless OIDC endpoint unreachable at startup |
-
-## Severity Guidelines
-
-| Severity | Criteria |
-|----------|----------|
-| **Critical** | Security vulnerability, data loss risk, production crash |
-| **High** | Bug likely, significant performance issue, breaks API contract |
-| **Medium** | Code smell, maintainability issue, missing best practice |
-| **Low** | Style, minor optimization, suggestion |
-
-## Token Optimization
-
-- Focus on changed lines (use `git diff`)
-- Don't repeat obvious issues - group similar findings
-- Reference line numbers, not full code quotes
-- Skip files that are auto-generated or test fixtures
-
-## Quick Reference Card
-
-| Category | Key Checks |
-|----------|------------|
-| Null Safety | Chained calls, Optional misuse, null returns |
-| Exceptions | Empty catch, broad catch, lost stack trace |
-| Collections | Modification during iteration, stream vs loop |
-| Concurrency | Shared mutable state, check-then-act |
-| Idioms | equals/hashCode pair, toString, builders |
-| Resources | try-with-resources, connection leaks |
-| API | Boolean params, null handling, validation |
-| Performance | String concat, regex in loop, N+1 |
-| Kafka | Auto-commit on, send result ignored, @KafkaListener + @Transactional |
-| Redis | No TTL, wrong serializer, missing @CacheEvict |
-| Keycloak | No role converter, no @EnableMethodSecurity, IDOR on userId path |
+## What to Verify
+- Findings are grouped by severity and tied to impact
+- Repeated issues are consolidated instead of duplicated
+- Specialized concerns were routed to the correct sibling skills
+- Review comments focus on the changed behavior and real risk, not generic trivia
+- Suggested fixes do not quietly expand scope beyond the review
+
+## See References
+- `references/review-workflow.md` for review sequence and reporting shape
+- `references/core-correctness.md` for null safety, exceptions, collections, resources, and API design
+- `references/concurrency.md` for races, shared state, executors, futures, locks, virtual threads, and cancellation
+- `references/runtime-and-modern-java.md` for performance, virtual threads, records, and Optional pitfalls
+- `references/spring-review.md` for Spring-specific smells and testing expectations
+- `references/integration-routing.md` for subsystem-specific review routing
+- `references/gotchas.md` for review failure modes

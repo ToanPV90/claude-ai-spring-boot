@@ -124,12 +124,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(
             ResourceNotFoundException ex, WebRequest request) {
-        log.error("Resource not found: {}", ex.getMessage());
+        log.warn("Resource not found: {}", ex.getMessage());
         ErrorResponse error = new ErrorResponse(
             HttpStatus.NOT_FOUND.value(),
             ex.getMessage(),
             request.getDescription(false),
-            LocalDateTime.now()
+            Instant.now()
         );
         return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
     }
@@ -151,7 +151,7 @@ public class GlobalExceptionHandler {
             HttpStatus.BAD_REQUEST.value(),
             "Validation failed",
             errors,
-            LocalDateTime.now()
+            Instant.now()
         );
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
@@ -164,7 +164,7 @@ public class GlobalExceptionHandler {
             HttpStatus.CONFLICT.value(),
             "Data integrity violation - resource may already exist",
             request.getDescription(false),
-            LocalDateTime.now()
+            Instant.now()
         );
         return new ResponseEntity<>(error, HttpStatus.CONFLICT);
     }
@@ -177,7 +177,7 @@ public class GlobalExceptionHandler {
             HttpStatus.INTERNAL_SERVER_ERROR.value(),
             "An unexpected error occurred",
             request.getDescription(false),
-            LocalDateTime.now()
+            Instant.now()
         );
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -187,16 +187,18 @@ record ErrorResponse(
     int status,
     String message,
     String path,
-    LocalDateTime timestamp
+    Instant timestamp
 ) {}
 
 record ValidationErrorResponse(
     int status,
     String message,
     Map<String, String> errors,
-    LocalDateTime timestamp
+    Instant timestamp
 ) {}
 ```
+
+Treat the catch-all `Exception.class` handler as a last-resort safety net. Keep more specific infrastructure, validation, and security exceptions on narrower handlers when the API needs differentiated behavior.
 
 ## Custom Validation
 
@@ -267,10 +269,14 @@ public class ExternalApiService {
                 Mono.error(new ServiceUnavailableException("External service unavailable")))
             .bodyToMono(ExternalDataResponse.class)
             .timeout(Duration.ofSeconds(5))
-            .retry(3);
+            .retryWhen(Retry.backoff(3, Duration.ofMillis(200))
+                .filter(ex -> ex instanceof ServiceUnavailableException || ex instanceof TimeoutException));
     }
 }
 ```
+
+Retry only on transient failures such as timeouts or 5xx-style upstream unavailability.
+Do not blindly retry all 4xx responses or every exception type.
 
 ## CORS Configuration
 
@@ -303,3 +309,9 @@ public class WebConfig implements WebMvcConfigurer {
 | `@Valid` | Triggers validation on request body |
 | `@RestControllerAdvice` | Global exception handling for REST controllers |
 | `@ResponseStatus` | Sets HTTP status code for method |
+
+## Gotchas
+
+- Treat `Exception.class` handlers as a last resort; broad catch-all handlers should not erase meaningful infrastructure, validation, or security distinctions.
+- Use `Instant` for server-generated timestamps when values cross process or timezone boundaries; convert later for presentation if needed.
+- Retry only transient downstream failures; a blanket WebClient retry policy can amplify client bugs and duplicate side effects.

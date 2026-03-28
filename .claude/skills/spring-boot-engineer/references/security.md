@@ -1,6 +1,10 @@
 # Security - Spring Security 6
 
-## Security Configuration
+## Security Configuration (Resource Server Default)
+
+For this repo, the default Spring Security shape is **filter-chain authentication**.
+Protected APIs should assume an upstream OAuth2/OIDC provider or resource-server JWT
+validation flow, not a custom `/login` controller or handwritten JWT filter.
 
 ```java
 @Configuration
@@ -10,363 +14,100 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-            .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/api/auth/**")
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-            )
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        return http
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/actuator/health").permitAll()
+                .requestMatchers("/actuator/health", "/api/public/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/users/**").hasAnyRole("USER", "ADMIN")
-                .anyRequest().authenticated()
-            )
-            .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
+                .anyRequest().authenticated())
+            .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authenticationEntryPoint())
-                .accessDeniedHandler(accessDeniedHandler())
-            )
-            .addFilterBefore(jwtAuthenticationFilter(),
-                           UsernamePasswordAuthenticationFilter.class);
-
-        return http.build();
-    }
-
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
-    }
-}
-```
-
-## JWT Authentication Filter
-
-```java
-@Component
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
-    private final JwtService jwtService;
-    private final UserDetailsService userDetailsService;
-
-    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService) {
-        this.jwtService = jwtService;
-        this.userDetailsService = userDetailsService;
-    }
-
-    @Override
-    protected void doFilterInternal(
-            @NonNull HttpServletRequest request,
-            @NonNull HttpServletRequest response,
-            @NonNull FilterChain filterChain) throws ServletException, IOException {
-
-        final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String username;
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        jwt = authHeader.substring(7);
-
-        try {
-            username = jwtService.extractUsername(jwt);
-
-            if (username != null && SecurityContextHolder.getContext()
-                    .getAuthentication() == null) {
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
-                if (jwtService.isTokenValid(jwt, userDetails)) {
-                    UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                            userDetails,
-                            null,
-                            userDetails.getAuthorities()
-                        );
-
-                    authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                    );
-
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                }
-            }
-        } catch (JwtException e) {
-            log.error("JWT validation failed", e);
-        }
-
-        filterChain.doFilter(request, response);
-    }
-}
-```
-
-## JWT Service
-
-```java
-@Service
-public class JwtService {
-    @Value("${jwt.secret}")
-    private String secretKey;
-
-    @Value("${jwt.expiration}")
-    private long jwtExpiration;
-
-    @Value("${jwt.refresh-expiration}")
-    private long refreshExpiration;
-
-    public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
-    }
-
-    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
-        return claimsResolver.apply(claims);
-    }
-
-    public String generateToken(UserDetails userDetails) {
-        Map<String, Object> extraClaims = new HashMap<>();
-        extraClaims.put("roles", userDetails.getAuthorities().stream()
-            .map(GrantedAuthority::getAuthority)
-            .collect(Collectors.toList()));
-
-        return generateToken(extraClaims, userDetails);
-    }
-
-    public String generateToken(
-            Map<String, Object> extraClaims,
-            UserDetails userDetails) {
-        return buildToken(extraClaims, userDetails, jwtExpiration);
-    }
-
-    public String generateRefreshToken(UserDetails userDetails) {
-        return buildToken(new HashMap<>(), userDetails, refreshExpiration);
-    }
-
-    private String buildToken(
-            Map<String, Object> extraClaims,
-            UserDetails userDetails,
-            long expiration) {
-        return Jwts
-            .builder()
-            .setClaims(extraClaims)
-            .setSubject(userDetails.getUsername())
-            .setIssuedAt(new Date(System.currentTimeMillis()))
-            .setExpiration(new Date(System.currentTimeMillis() + expiration))
-            .signWith(getSignInKey(), SignatureAlgorithm.HS256)
-            .compact();
-    }
-
-    public boolean isTokenValid(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
-    }
-
-    private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
-    }
-
-    private Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    private Claims extractAllClaims(String token) {
-        return Jwts
-            .parserBuilder()
-            .setSigningKey(getSignInKey())
-            .build()
-            .parseClaimsJws(token)
-            .getBody();
-    }
-
-    private Key getSignInKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
-        return Keys.hmacShaKeyFor(keyBytes);
-    }
-}
-```
-
-## UserDetailsService Implementation
-
-```java
-@Service
-public class CustomUserDetailsService implements UserDetailsService {
-    private final UserRepository userRepository;
-
-    public CustomUserDetailsService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByEmailWithRoles(username)
-            .orElseThrow(() -> new UsernameNotFoundException(
-                "User not found with email: " + username));
-
-        return org.springframework.security.core.userdetails.User
-            .builder()
-            .username(user.getEmail())
-            .password(user.getPassword())
-            .authorities(user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName()))
-                .collect(Collectors.toList()))
-            .accountExpired(false)
-            .accountLocked(!user.getActive())
-            .credentialsExpired(false)
-            .disabled(!user.getActive())
+                .accessDeniedHandler(accessDeniedHandler()))
             .build();
     }
+
+    @Bean
+    public AuthenticationEntryPoint authenticationEntryPoint() {
+        return (request, response, authException) -> {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.getWriter().write("""
+                {"status":401,"message":"Authentication required"}
+                """);
+        };
+    }
+
+    @Bean
+    public AccessDeniedHandler accessDeniedHandler() {
+        return (request, response, accessDeniedException) -> {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.getWriter().write("""
+                {"status":403,"message":"Access denied"}
+                """);
+        };
+    }
 }
 ```
 
-## Authentication Controller
+## Authentication Ownership
+
+- For bearer-token APIs, authentication should happen in Spring Security filters before controller code runs.
+- Controllers should expose business endpoints and work with an already-authenticated principal.
+- For Keycloak or another OIDC provider, obtain tokens from the provider and validate them with resource-server support.
+- Route provider-specific issuer configuration, JWT claim mapping, and `JwtAuthenticationConverter` logic to `keycloak-patterns`.
+
+## Variant: First-Party Credential Authentication (Explicit Opt-In)
+
+If a project truly owns username/password login itself, treat that as an explicit application-specific variant.
+
+- Document it as a non-default path.
+- Call out required dependencies such as JJWT or another token library before showing code.
+- Keep that variant separate from the normal resource-server examples so generated guidance does not accidentally teach custom `/login` flows as the Spring default.
+
+## Secured Business Endpoint Example
 
 ```java
 @RestController
-@RequestMapping("/api/auth")
-public class AuthenticationController {
-    private final AuthenticationService authenticationService;
+@RequestMapping("/api/v1/orders")
+public class OrderController {
 
-    public AuthenticationController(AuthenticationService authenticationService) {
-        this.authenticationService = authenticationService;
+    private final OrderService orderService;
+
+    public OrderController(OrderService orderService) {
+        this.orderService = orderService;
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<AuthenticationResponse> register(
-            @Valid @RequestBody RegisterRequest request) {
-        AuthenticationResponse response = authenticationService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    @PostMapping("/login")
-    public ResponseEntity<AuthenticationResponse> login(
-            @Valid @RequestBody LoginRequest request) {
-        AuthenticationResponse response = authenticationService.login(request);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/refresh")
-    public ResponseEntity<AuthenticationResponse> refreshToken(
-            @RequestBody RefreshTokenRequest request) {
-        AuthenticationResponse response = authenticationService.refreshToken(request);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/logout")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Void> logout() {
-        SecurityContextHolder.clearContext();
-        return ResponseEntity.noContent().build();
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public OrderResponse getById(@PathVariable UUID id) {
+        return orderService.getById(id);
     }
 }
 ```
 
-## Authentication Service
+## Service Uses the Security Context, Not Login Flow Code
 
 ```java
 @Service
-@Transactional
-public class AuthenticationService {
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
-    private final AuthenticationManager authenticationManager;
+@Transactional(readOnly = true)
+public class OrderService {
 
-    public AuthenticationService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                                 JwtService jwtService, AuthenticationManager authenticationManager) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtService = jwtService;
-        this.authenticationManager = authenticationManager;
+    private final OrderRepository repository;
+    private final UserContextHolder userContextHolder;
+
+    public OrderService(OrderRepository repository, UserContextHolder userContextHolder) {
+        this.repository = repository;
+        this.userContextHolder = userContextHolder;
     }
 
-    public AuthenticationResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
-            throw new DuplicateResourceException("Email already registered");
-        }
-
-        User user = User.builder()
-            .email(request.email())
-            .password(passwordEncoder.encode(request.password()))
-            .username(request.username())
-            .active(true)
-            .roles(Set.of(Role.builder().name("USER").build()))
-            .build();
-
-        user = userRepository.save(user);
-
-        String accessToken = jwtService.generateToken(convertToUserDetails(user));
-        String refreshToken = jwtService.generateRefreshToken(convertToUserDetails(user));
-
-        return new AuthenticationResponse(accessToken, refreshToken);
-    }
-
-    public AuthenticationResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(
-                request.email(),
-                request.password()
-            )
-        );
-
-        User user = userRepository.findByEmail(request.email())
-            .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
-        String accessToken = jwtService.generateToken(convertToUserDetails(user));
-        String refreshToken = jwtService.generateRefreshToken(convertToUserDetails(user));
-
-        return new AuthenticationResponse(accessToken, refreshToken);
-    }
-
-    public AuthenticationResponse refreshToken(RefreshTokenRequest request) {
-        String username = jwtService.extractUsername(request.refreshToken());
-
-        User user = userRepository.findByEmail(username)
-            .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
-        UserDetails userDetails = convertToUserDetails(user);
-
-        if (!jwtService.isTokenValid(request.refreshToken(), userDetails)) {
-            throw new InvalidTokenException("Invalid refresh token");
-        }
-
-        String accessToken = jwtService.generateToken(userDetails);
-
-        return new AuthenticationResponse(accessToken, request.refreshToken());
-    }
-
-    private UserDetails convertToUserDetails(User user) {
-        return org.springframework.security.core.userdetails.User
-            .builder()
-            .username(user.getEmail())
-            .password(user.getPassword())
-            .authorities(user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName()))
-                .collect(Collectors.toList()))
-            .build();
+    public OrderResponse getById(UUID id) {
+        Order order = repository.findByIdAndOwnerId(id, userContextHolder.getCurrentUserId())
+            .orElseThrow(() -> new OrderNotFoundException(id));
+        return OrderResponse.from(order);
     }
 }
 ```
@@ -376,82 +117,52 @@ public class AuthenticationService {
 ```java
 @Service
 public class UserService {
-    private final UserRepository userRepository;
 
-    public UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
+    private final UserProfileRepository userProfileRepository;
+
+    public UserService(UserProfileRepository userProfileRepository) {
+        this.userProfileRepository = userProfileRepository;
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     public List<User> getAllUsers() {
-        return userRepository.findAll();
+        return userProfileRepository.findAll();
     }
 
-    @PreAuthorize("hasRole('ADMIN') or #userId == authentication.principal.id")
-    public User getUserById(Long userId) {
-        return userRepository.findById(userId)
-            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-    }
-
-    @PreAuthorize("isAuthenticated()")
-    @PostAuthorize("returnObject.email == authentication.principal.username")
-    public User updateProfile(Long userId, UserUpdateRequest request) {
-        User user = getUserById(userId);
-        // Update logic
-        return userRepository.save(user);
+    @PreAuthorize("hasRole('ADMIN') or #ownerId == @userContextHolder.getCurrentUserId()")
+    public UserProfile getProfile(String ownerId) {
+        return userProfileRepository.findByOwnerId(ownerId)
+            .orElseThrow(() -> new ResourceNotFoundException("Profile not found"));
     }
 
     @Secured({"ROLE_ADMIN", "ROLE_MANAGER"})
     public void deleteUser(Long userId) {
-        userRepository.deleteById(userId);
+        userProfileRepository.deleteById(userId);
     }
 }
 ```
 
-## OAuth2 Resource Server (JWT)
+## OAuth2 Resource Server Routing
 
-```java
-@Configuration
-@EnableWebSecurity
-public class OAuth2ResourceServerConfig {
+For Keycloak-backed OAuth2/OIDC resource-server wiring, do not copy a generic
+`JwtAuthenticationConverter` from this reference.
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/public/**").permitAll()
-                .anyRequest().authenticated()
-            )
-            .oauth2ResourceServer(oauth2 -> oauth2
-                .jwt(jwt -> jwt
-                    .jwtAuthenticationConverter(jwtAuthenticationConverter())
-                )
-            );
+Load `keycloak-patterns` when the task involves:
+- `issuer-uri` / `jwk-set-uri` configuration for Keycloak
+- `JwtAuthenticationConverter` logic for `realm_access.roles`
+- client-role extraction from `resource_access.{client}.roles`
+- bearer-token authorization rules tied to Keycloak claims
 
-        return http.build();
-    }
+This reference keeps the general Spring Security structure. Keycloak-specific
+JWT claim mapping belongs to `keycloak-patterns`.
 
-    @Bean
-    public JwtDecoder jwtDecoder() {
-        return JwtDecoders.fromIssuerLocation("https://auth.example.com");
-    }
+If a security rule depends on ownership rather than role, prefer an explicit
+helper bean over assuming `authentication.name` has the right semantics. Under
+resource-server defaults it often maps to `sub`, which is not interchangeable
+with numeric database IDs or mutable display claims.
 
-    @Bean
-    public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter =
-            new JwtGrantedAuthoritiesConverter();
-        grantedAuthoritiesConverter.setAuthoritiesClaimName("roles");
-        grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
-
-        JwtAuthenticationConverter jwtAuthenticationConverter =
-            new JwtAuthenticationConverter();
-        jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(
-            grantedAuthoritiesConverter);
-
-        return jwtAuthenticationConverter;
-    }
-}
-```
+Keep helper naming aligned with that rule: prefer `getCurrentUserId()` or a
+similarly explicit principal-ID helper over generic names like `getCurrentUsername()`.
 
 ## Quick Reference
 
@@ -467,13 +178,17 @@ public class OAuth2ResourceServerConfig {
 
 ## Security Best Practices
 
+- `AuthenticationEntryPoint` / `AccessDeniedHandler` examples here are for API responses, not browser login pages; do not mix them with form-login assumptions.
+- If ownership depends on a stable user identifier, prefer an explicit helper tied to the principal ID instead of comparing numeric IDs to usernames or display claims.
+- First-party credential auth is an explicit variant; do not quietly copy it into a bearer-token/resource-server service.
+
 - Always use HTTPS in production
-- Store JWT secret in environment variables
-- Use strong password encoding (BCrypt with strength 12+)
-- Implement token refresh mechanism
-- Add rate limiting to authentication endpoints
+- Prefer resource-server or OIDC provider validation over hand-rolled JWT parsing in the application
+- Keep any first-party credential-auth flow documented as an explicit variant, not the default example
+- Use strong password encoding when the application truly owns credentials
+- Add rate limiting only when the application actually exposes first-party authentication endpoints
 - Validate all user inputs
 - Log security events
 - Keep dependencies updated
-- Use CSRF protection for state-changing operations
-- Implement proper session timeout
+- Use CSRF protection only for session/cookie/browser flows, not stateless bearer-token APIs by default
+- Keep session-based examples separate from stateless resource-server examples

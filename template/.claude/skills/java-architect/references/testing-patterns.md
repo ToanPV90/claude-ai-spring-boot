@@ -3,13 +3,13 @@
 ## Unit Testing with JUnit 5
 
 ```java
-package com.example.application.service;
+package com.example.service;
 
-import com.example.application.dto.UserRequest;
-import com.example.application.dto.UserResponse;
-import com.example.application.mapper.UserMapper;
-import com.example.domain.model.User;
-import com.example.domain.repository.UserRepository;
+import com.example.dto.UserRequest;
+import com.example.dto.UserResponse;
+import com.example.mapper.UserMapper;
+import com.example.model.User;
+import com.example.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -122,8 +122,8 @@ class UserServiceTest {
 ```java
 package com.example.integration;
 
-import com.example.application.dto.UserRequest;
-import com.example.application.dto.UserResponse;
+import com.example.dto.UserRequest;
+import com.example.dto.UserResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -193,9 +193,9 @@ class UserIntegrationTest {
 ## Repository Testing
 
 ```java
-package com.example.domain.repository;
+package com.example.repository;
 
-import com.example.domain.model.User;
+import com.example.model.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -258,11 +258,11 @@ class UserRepositoryTest {
 ## REST Controller Testing
 
 ```java
-package com.example.presentation.rest;
+package com.example.controller;
 
-import com.example.application.dto.UserRequest;
-import com.example.application.dto.UserResponse;
-import com.example.application.service.UserService;
+import com.example.dto.UserRequest;
+import com.example.dto.UserResponse;
+import com.example.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -356,7 +356,7 @@ public class TestSecurityConfig {
 ```java
 package com.example.test.builders;
 
-import com.example.domain.model.User;
+import com.example.model.User;
 
 public class UserTestBuilder {
 

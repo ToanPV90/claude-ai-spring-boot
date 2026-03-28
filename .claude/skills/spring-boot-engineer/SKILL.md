@@ -1,232 +1,159 @@
 ---
 name: spring-boot-engineer
-description: Generates Spring Boot 3.x configurations, creates REST controllers, implements Spring Security 6 authentication flows, sets up Spring Data JPA repositories, and configures reactive WebFlux endpoints. Use when building Spring Boot 3.x applications, microservices, or reactive Java applications; invoke for Spring Data JPA, Spring Security 6, WebFlux, Spring Cloud integration, Java REST API design, or Microservices Java architecture.
+description: Implementation guidance for building production-ready Spring Boot features with controllers, services, validation, transactions, security wiring, and tests. Use when generating or modifying Spring Boot application code after the architecture and layering decisions are already settled.
 license: MIT
 metadata:
-  author: https://github.com/Jeffallan
-  version: "1.1.0"
+  author: local
+  version: "1.2.0"
   domain: backend
-  triggers: Spring Boot, Spring Framework, Spring Cloud, Spring Security, Spring Data JPA, Spring WebFlux, Microservices Java, Java REST API, Reactive Java
+  triggers:
+    - Spring Boot implementation
+    - REST controller
+    - service layer
+    - repository implementation
+    - Spring Security
+    - Spring Data JPA
+    - Spring WebFlux
+    - configuration properties
+    - ProblemDetail
+    - Actuator
   role: specialist
   scope: implementation
-  output-format: code
-  related-skills: java-architect, database-optimizer, microservices-architect, devops-engineer
+  output-format: code + guidance
+  related-skills: maven-master, spring-boot-patterns, java-architect, jpa-patterns, blaze-persistence, jooq-patterns, postgres-master, tdd-guide, logging-patterns, keycloak-patterns
 ---
 
 # Spring Boot Engineer
 
-## Core Workflow
+Implementation guide for turning a settled Spring Boot design into production-ready code, tests, and configuration without reopening architecture decisions that another skill should own.
 
-1. **Analyze requirements** — Identify service boundaries, APIs, data models, security needs
-2. **Design architecture** — Plan microservices, data access, cloud integration, security; confirm design before coding
-3. **Implement** — Create services with constructor injection and layered architecture (see Quick Start below)
-4. **Secure** — Add Spring Security, OAuth2, method security, CORS configuration; verify security rules compile and pass tests. If compilation or tests fail: review error output, fix the failing rule or configuration, and re-run before proceeding
-5. **Test** — Write unit, integration, and slice tests; run `./mvnw test` (or `./gradlew test`) and confirm all pass before proceeding. If tests fail: review the stack trace, isolate the failing assertion or component, fix the issue, and re-run the full suite
-6. **Deploy** — Configure health checks and observability via Actuator; validate `/actuator/health` returns `UP`. If health is `DOWN`: check the `components` detail in the response, resolve the failing component (e.g., datasource, broker), and re-validate
+## When to Use
+- The task is to generate or modify Spring Boot application code across controllers, services, repositories, configuration, or security wiring
+- A feature needs concrete Spring Boot implementation defaults, not just architectural guidance
+- You need production-ready patterns for validation, transactions, exception handling, Actuator, or WebFlux setup
+- The user expects working code plus the supporting tests and configuration needed to run it
+
+## When Not to Use
+- The main task is architecture review, service decomposition, or system tradeoffs — use `java-architect`
+- The main task is parent POM, module layout, BOM/dependency management, or Maven build structure — use `maven-master`
+- The main task is deciding controller/service/repository ownership or DTO boundaries — use `spring-boot-patterns`
+- The main task is JPA fetch strategy, N+1, projections, or persistence tuning — use `jpa-patterns`
+- The main task is Blaze entity views, keyset pagination, or Blaze criteria queries over JPA entities — use `blaze-persistence`
+- The main task is PostgreSQL schema, indexing, JSONB, or partition design — use `postgres-master`
+- The main task is Redis caching, distributed locking, rate limiting, or RedisTemplate depth — use `redis-patterns`
+- The main task is OAuth2/Keycloak role mapping and token-conversion detail — use `keycloak-patterns`
+- The main task is mostly review or audit of existing code — use `java-code-review`
 
 ## Reference Guide
 
-Load detailed guidance based on context:
-
 | Topic | Reference | Load When |
-|-------|-----------|-----------|
-| Web Layer | `references/web.md` | Controllers, REST APIs, validation, exception handling |
-| Data Access | `references/data.md` | Spring Data JPA, repositories, transactions, projections |
-| Security | `references/security.md` | Spring Security 6, OAuth2, JWT, method security |
-| Cloud Native | `references/cloud.md` | Spring Cloud, Config, Discovery, Gateway, resilience |
-| Testing | `references/testing.md` | @SpringBootTest, MockMvc, Testcontainers, test slices |
+|------|-----------|-----------|
+| Controllers, validation, exception handling, WebClient | `references/web.md` | Building HTTP endpoints, request/response flow, or application-facing integrations inside an application module |
+| Repositories, transactions, projections, JPA defaults | `references/data.md` | Implementing Spring Data access after the data model is already chosen |
+| Security 6, OAuth2/JWT, method security | `references/security.md` | Wiring authentication, authorization, and filter-chain behavior |
+| Spring Cloud, Config, Discovery, Gateway, resilience | `references/cloud.md` | Adding cloud/runtime wiring after the service shape is already decided |
+| Slice tests, integration tests, Testcontainers, WebTestClient | `references/testing.md` | Writing or updating tests around Spring Boot implementation work |
 
-## Quick Start — Minimal Working Structure
+## Symptom Triage
 
-A standard Spring Boot feature consists of these layers. Use these as copy-paste starting points.
+| Symptom | Default Check | Likely Fix |
+|--------|---------------|------------|
+| Feature code is scattered | Are controllers, services, and repositories mixed together? | Re-apply the standard layer split and wire dependencies with constructors |
+| API endpoints compile but behave inconsistently | Are validation, error handling, or DTO mapping ad hoc? | Centralize validation and `@RestControllerAdvice` defaults |
+| Transaction behavior is unclear | Are writes spread across multiple methods or layers? | Move the boundary into the owning service method |
+| Security wiring fails at startup or runtime | Is the filter chain or JWT/resource-server config incomplete? | Route through the security reference and align bean wiring |
+| Tests are missing or too coarse | Are only end-to-end tests being added? | Pick the right slice/integration level and add focused coverage |
 
-### Entity
+## Implementation Ladder
 
-```java
-@Entity
-@Table(name = "products")
-public class Product {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+1. **Confirm the boundary is already decided.** If the real problem is architecture, Maven module layout, or layering, route first.
+2. **Generate the narrowest production code needed.** Controller, service, repository, DTO, config, or handler — not everything by reflex.
+3. **Apply Spring defaults intentionally.** Constructor injection, validation, typed config, transaction boundaries, problem details.
+4. **Add the right test level.** Unit, slice, or integration based on what changed.
+5. **Verify the application wiring.** Compile, test, and check the relevant runtime endpoint or configuration behavior.
 
-    @NotBlank
-    private String name;
+## Quick Mapping
 
-    @DecimalMin("0.0")
-    private BigDecimal price;
-
-    // explicit getters and setters (no Lombok)
-}
-```
-
-### Repository
-
-```java
-public interface ProductRepository extends JpaRepository<Product, Long> {
-    List<Product> findByNameContainingIgnoreCase(String name);
-}
-```
-
-### Service (constructor injection)
-
-```java
-@Service
-public class ProductService {
-    private final ProductRepository repo;
-
-    public ProductService(ProductRepository repo) { // constructor injection — no @Autowired
-        this.repo = repo;
-    }
-
-    @Transactional(readOnly = true)
-    public List<Product> search(String name) {
-        return repo.findByNameContainingIgnoreCase(name);
-    }
-
-    @Transactional
-    public Product create(ProductRequest request) {
-        var product = new Product();
-        product.setName(request.name());
-        product.setPrice(request.price());
-        return repo.save(product);
-    }
-}
-```
-
-### REST Controller
-
-```java
-@RestController
-@RequestMapping("/api/v1/products")
-@Validated
-public class ProductController {
-    private final ProductService service;
-
-    public ProductController(ProductService service) {
-        this.service = service;
-    }
-
-    @GetMapping
-    public List<Product> search(@RequestParam(defaultValue = "") String name) {
-        return service.search(name);
-    }
-
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public Product create(@Valid @RequestBody ProductRequest request) {
-        return service.create(request);
-    }
-}
-```
-
-### DTO (record)
-
-```java
-public record ProductRequest(
-    @NotBlank String name,
-    @DecimalMin("0.0") BigDecimal price
-) {}
-```
-
-### Global Exception Handler
-
-```java
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Map<String, String> handleValidation(MethodArgumentNotValidException ex) {
-        return ex.getBindingResult().getFieldErrors().stream()
-            .collect(Collectors.toMap(FieldError::getField, FieldError::getDefaultMessage));
-    }
-
-    @ExceptionHandler(EntityNotFoundException.class)
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    public Map<String, String> handleNotFound(EntityNotFoundException ex) {
-        return Map.of("error", ex.getMessage());
-    }
-}
-```
-
-### Test Slice
-
-```java
-@WebMvcTest(ProductController.class)
-class ProductControllerTest {
-    @Autowired MockMvc mockMvc;
-    @MockitoBean ProductService service;  // Spring Boot 3.4+ (replaces @MockBean)
-
-    @Test
-    void createProduct_validRequest_returns201() throws Exception {
-        var product = new Product(); product.setName("Widget"); product.setPrice(BigDecimal.TEN);
-        when(service.create(any())).thenReturn(product);
-
-        mockMvc.perform(post("/api/v1/products")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"name":"Widget","price":10.0}"""))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.name").value("Widget"));
-    }
-}
-```
-
-## Modern Spring Boot 3.x Features
-
-### Virtual Threads (Java 21)
-```yaml
-# application.yml
-spring:
-  threads:
-    virtual:
-      enabled: true  # All request handling uses virtual threads
-```
-
-### Problem Details (RFC 9457)
-```java
-// Spring Boot 3.x native support
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ProblemDetail handleNotFound(ResourceNotFoundException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-            HttpStatus.NOT_FOUND, ex.getMessage());
-        problem.setTitle("Resource Not Found");
-        problem.setProperty("resourceType", ex.getResourceType());
-        return problem;
-    }
-}
-```
-
-### Configuration Properties as Records
-```java
-@ConfigurationProperties(prefix = "app.jwt")
-public record JwtProperties(
-    @NotBlank String secret,
-    @DurationUnit(ChronoUnit.HOURS) Duration expiration
-) {}
-```
+| Situation | Default Choice | Prefer Instead Of |
+|-----------|----------------|-------------------|
+| Implement CRUD-style HTTP feature | Controller + service + DTO + repository | Dumping everything into one class |
+| Bind app config | `@ConfigurationProperties` | Scattered `@Value` strings |
+| Return API-safe failures | `ProblemDetail` or stable error DTO via advice | Exposing stack traces or entity internals |
+| Add reads/writes with transactions | Service owns `@Transactional` boundary | Transactions in controllers |
+| Add health/runtime support | Actuator + focused config | Hand-rolled health endpoints |
 
 ## Constraints
 
 ### MUST DO
 
-| Rule | Correct Pattern |
-|------|----------------|
-| Constructor injection | `public MyService(Dep dep) { this.dep = dep; }` |
-| Validate API input | `@Valid @RequestBody MyRequest req` on every mutating endpoint |
-| Type-safe config | `@ConfigurationProperties(prefix = "app")` bound to a record/class |
-| Appropriate stereotype | `@Service` for business logic, `@Repository` for data, `@RestController` for HTTP |
-| Transaction scope | `@Transactional` on multi-step writes; `@Transactional(readOnly = true)` on reads |
-| Hide internals | Catch domain exceptions in `@RestControllerAdvice`; return problem details, not stack traces |
-| Externalize secrets | Use environment variables or Spring Cloud Config — never `application.properties` |
+| Rule | Preferred Pattern |
+|------|-------------------|
+| Use constructor injection in production code | `public UserService(UserRepository repo)` |
+| Keep service and custom DAO boundaries explicit | `UserService` + `UserServiceImpl`, `OrderDao` + `OrderDaoImpl` |
+| Validate external input | `@Valid` DTOs at HTTP boundaries |
+| Keep transaction boundaries in services | `@Transactional` on the owning write/read method |
+| Use typed configuration | `@ConfigurationProperties` bound to a record/class |
+| Ship implementation with tests | Match code changes with unit, slice, or integration coverage |
 
 ### MUST NOT DO
-- Use field injection (`@Autowired` on fields)
-- Skip input validation on API endpoints
-- Use `@Component` when `@Service`/`@Repository`/`@Controller` applies
-- Mix blocking and reactive code (e.g., calling `.block()` inside a WebFlux chain)
-- Store secrets or credentials in `application.properties`/`application.yml`
-- Hardcode URLs, credentials, or environment-specific values
-- Use deprecated Spring Boot 2.x patterns (e.g., `WebSecurityConfigurerAdapter`)
+- Do not re-decide architecture in the middle of implementation work when another skill should own that choice
+- Do not return entities directly from API endpoints as the default
+- Do not use field injection in production components
+- Do not mix blocking calls into reactive code paths
+- Do not duplicate deep JPA tuning, logging policy, or Keycloak mapping guidance that sibling skills already own
+
+## Gotchas
+
+- “Generate a Spring Boot feature” easily turns into architecture churn if service boundaries were never settled first.
+- Large copy-paste quickstarts age badly; keep the main file focused on implementation decisions and route details to references.
+- Security and persistence examples look interchangeable across apps, but token mapping and fetch strategy usually belong to specialist skills.
+- Test examples should prove behavior, not just context startup.
+- Production-ready Spring Boot work includes config and verification, not just controller/service code.
+
+## Minimal Examples
+
+### Typed configuration
+```java
+@ConfigurationProperties(prefix = "app.jwt")
+public record JwtProperties(String secret, Duration expiration) {
+}
+```
+
+### Service-owned transaction boundary with interface + Impl
+```java
+public interface ProductService {
+    ProductResponse create(ProductRequest request);
+}
+
+@Service
+public class ProductServiceImpl implements ProductService {
+
+    private final ProductRepository repository;
+
+    public ProductServiceImpl(ProductRepository repository) {
+        this.repository = repository;
+    }
+
+    @Override
+    @Transactional
+    public ProductResponse create(ProductRequest request) {
+        Product saved = repository.save(Product.from(request));
+        return ProductResponse.from(saved);
+    }
+}
+```
+
+## What to Verify
+- The generated code stays inside an already-settled architecture, Maven module boundary, and layer boundary
+- Validation, transaction ownership, config binding, and exception handling are explicit
+- Tests match the change scope instead of defaulting to only one test style
+- Security, JPA tuning, and logging detail are routed to the owning skills when they get deep
+- The final implementation is runnable and production-facing, not just framework-shaped
+
+## See References
+- `maven-master` for Maven multi-module structure, BOMs, and module-aware build rules
+- `references/web.md` for controllers, validation, advice classes, and WebClient
+- `references/data.md` for repositories, projections, transactions, and data defaults
+- `references/security.md` for Security 6 and OAuth2/JWT wiring
+- `references/cloud.md` for Actuator, Spring Cloud, and resilience setup
+- `references/testing.md` for unit, slice, integration, and reactive test patterns
