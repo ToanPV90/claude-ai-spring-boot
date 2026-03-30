@@ -30,5 +30,5 @@
 
 ## Route Elsewhere
 
-- If concurrency control becomes aggregate or transaction behavior, route to `jpa-patterns`.
-- If the question becomes SQL implementation or locking statements, route to `jooq-patterns`.
+- If concurrency control becomes aggregate or transaction behavior, route to `jpa-master`.
+- If the question becomes SQL implementation or locking statements, route to `jooq-master`.

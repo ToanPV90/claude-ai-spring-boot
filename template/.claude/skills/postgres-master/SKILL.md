@@ -4,7 +4,7 @@ description: Design guidance for PostgreSQL tables, schemas, constraints, indexe
 license: MIT
 metadata:
   author: local
-  version: "1.1.0"
+  version: "1.1.1"
   domain: backend
   triggers:
     - PostgreSQL schema
@@ -25,12 +25,12 @@ metadata:
   role: specialist
   scope: architecture
   output-format: guidance + schema design
-  related-skills: jpa-patterns, blaze-persistence, jooq-patterns, spring-boot-patterns, spring-boot-engineer, java-architect, java-code-review
+  related-skills: jpa-master, blaze-persistence, jooq-master, spring-boot-master, spring-boot-engineer, java-architect, java-code-review
 ---
 
 # PostgreSQL Master
 
-Decision guide for PostgreSQL-first schema design in Spring Boot systems.
+Decision guide for PostgreSQL-first schema design in Java systems.
 
 ## When to Use
 - The task is designing new PostgreSQL tables, schemas, constraints, or indexes
@@ -41,17 +41,17 @@ Decision guide for PostgreSQL-first schema design in Spring Boot systems.
 - The user needs PostgreSQL-specific guidance on identifier naming, FK indexes, `ON CONFLICT`, or `CREATE INDEX CONCURRENTLY`
 
 ## When Not to Use
-- The task is JPA mapping, fetch behavior, transactions, or aggregate semantics; use `jpa-patterns`
+- The task is JPA mapping, fetch behavior, transactions, or aggregate semantics; use `jpa-master`
 - The task is entity views, keyset pagination over JPA entities, or Blaze criteria composition; use `blaze-persistence`
-- The task is SQL query implementation, code generation, or reporting queries; use `jooq-patterns`
-- The task is controller/service/repository ownership or DTO boundaries; use `spring-boot-patterns`
-- The task is generic Spring Boot implementation rather than schema design; use `spring-boot-engineer`
+- The task is SQL query implementation, code generation, or reporting queries; use `jooq-master`
+- The task is controller/service/repository ownership or DTO boundaries; use `spring-boot-master`
+- The task is generic application implementation rather than schema design; use the appropriate implementation skill, and for Spring Boot that is `spring-boot-engineer`
 - The task is service decomposition, migration rollout ownership, or broader platform tradeoffs; use `java-architect`
 - The task is review-only bug triage rather than design guidance; use `java-code-review`
 
 ## Version Assumptions
 - PostgreSQL 15+ by default unless a project says otherwise
-- Spring Boot 3.x applications using PostgreSQL as the primary relational store
+- Java applications using PostgreSQL as the primary relational store; if the surrounding stack is Spring Boot, keep the repo's Spring Boot defaults
 
 ## Reference Guide
 
@@ -107,7 +107,7 @@ Decision guide for PostgreSQL-first schema design in Spring Boot systems.
 | Prefer semantically strong defaults | `TIMESTAMPTZ`, `TEXT`, `NUMERIC`, `BIGINT GENERATED ALWAYS AS IDENTITY` |
 | Keep identifiers predictable | `snake_case`, unquoted identifiers, and explicit names for important constraints/indexes |
 | Plan schema evolution for large tables conservatively | Additive changes first, `NOT VALID` / validation patterns, concurrent indexes where needed |
-| Keep schema ownership explicit | Database design here, ORM semantics in `jpa-patterns`, SQL implementation in `jooq-patterns` |
+| Keep schema ownership explicit | Database design here, ORM semantics in `jpa-master`, SQL implementation in `jooq-master` |
 
 ### MUST NOT DO
 - Do not default to quoted or mixed-case identifiers

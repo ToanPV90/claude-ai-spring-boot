@@ -22,7 +22,7 @@ Prefer:
 - `StringBuilder` for loop-driven concatenation and `+` for short, one-off concatenation where clarity wins
 - precompiled `Pattern` objects when the regex is reused
 
-Route heavy SQL/fetch analysis to `jpa-patterns` when the issue is persistence-specific.
+Route heavy SQL/fetch analysis to `jpa-master` when the issue is persistence-specific.
 
 ## Modern Java
 

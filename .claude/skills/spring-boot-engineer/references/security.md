@@ -58,7 +58,7 @@ public class SecurityConfig {
 - For bearer-token APIs, authentication should happen in Spring Security filters before controller code runs.
 - Controllers should expose business endpoints and work with an already-authenticated principal.
 - For Keycloak or another OIDC provider, obtain tokens from the provider and validate them with resource-server support.
-- Route provider-specific issuer configuration, JWT claim mapping, and `JwtAuthenticationConverter` logic to `keycloak-patterns`.
+- Route provider-specific issuer configuration, JWT claim mapping, and `JwtAuthenticationConverter` logic to `keycloak-master`.
 
 ## Variant: First-Party Credential Authentication (Explicit Opt-In)
 
@@ -147,14 +147,14 @@ public class UserService {
 For Keycloak-backed OAuth2/OIDC resource-server wiring, do not copy a generic
 `JwtAuthenticationConverter` from this reference.
 
-Load `keycloak-patterns` when the task involves:
+Load `keycloak-master` when the task involves:
 - `issuer-uri` / `jwk-set-uri` configuration for Keycloak
 - `JwtAuthenticationConverter` logic for `realm_access.roles`
 - client-role extraction from `resource_access.{client}.roles`
 - bearer-token authorization rules tied to Keycloak claims
 
 This reference keeps the general Spring Security structure. Keycloak-specific
-JWT claim mapping belongs to `keycloak-patterns`.
+JWT claim mapping belongs to `keycloak-master`.
 
 If a security rule depends on ownership rather than role, prefer an explicit
 helper bean over assuming `authentication.name` has the right semantics. Under

@@ -1,16 +1,16 @@
 ---
 name: spring-boot-engineer
-description: Implementation guidance for building production-ready Spring Boot features with controllers, services, validation, transactions, security wiring, and tests. Use when generating or modifying Spring Boot application code after the architecture and layering decisions are already settled.
+description: Implementation guidance for building production-ready Spring Boot features with controllers, services, validation, transactions, security wiring, and tests. Use when the task explicitly names Spring Boot, Spring Framework, or Spring-specific application code after the architecture and layering decisions are already settled.
 license: MIT
 metadata:
   author: local
-  version: "1.2.0"
+  version: "1.2.2"
   domain: backend
   triggers:
     - Spring Boot implementation
-    - REST controller
-    - service layer
-    - repository implementation
+    - Spring MVC controller
+    - Spring service bean
+    - Spring Data repository
     - Spring Security
     - Spring Data JPA
     - Spring WebFlux
@@ -20,7 +20,7 @@ metadata:
   role: specialist
   scope: implementation
   output-format: code + guidance
-  related-skills: maven-master, spring-boot-patterns, java-architect, jpa-patterns, blaze-persistence, jooq-patterns, postgres-master, tdd-guide, logging-patterns, keycloak-patterns
+  related-skills: maven-master, spring-boot-master, java-architect, jpa-master, blaze-persistence, jooq-master, postgres-master, tdd-guide, logging-master, keycloak-master
 ---
 
 # Spring Boot Engineer
@@ -28,20 +28,21 @@ metadata:
 Implementation guide for turning a settled Spring Boot design into production-ready code, tests, and configuration without reopening architecture decisions that another skill should own.
 
 ## When to Use
-- The task is to generate or modify Spring Boot application code across controllers, services, repositories, configuration, or security wiring
+- The task explicitly names Spring Boot or Spring Framework application code across controllers, services, repositories, configuration, or security wiring
 - A feature needs concrete Spring Boot implementation defaults, not just architectural guidance
 - You need production-ready patterns for validation, transactions, exception handling, Actuator, or WebFlux setup
 - The user expects working code plus the supporting tests and configuration needed to run it
 
 ## When Not to Use
+- The user asked for Java implementation or architecture without explicitly naming Spring Boot, Spring MVC, Spring Security, Spring Data, WebFlux, Actuator, or another Spring construct — stay framework-neutral and use `java-architect`, `design-patterns`, `clean-code`, or `tdd-guide` as appropriate
 - The main task is architecture review, service decomposition, or system tradeoffs — use `java-architect`
 - The main task is parent POM, module layout, BOM/dependency management, or Maven build structure — use `maven-master`
-- The main task is deciding controller/service/repository ownership or DTO boundaries — use `spring-boot-patterns`
-- The main task is JPA fetch strategy, N+1, projections, or persistence tuning — use `jpa-patterns`
+- The main task is deciding controller/service/repository ownership or DTO boundaries — use `spring-boot-master`
+- The main task is JPA fetch strategy, N+1, projections, or persistence tuning — use `jpa-master`
 - The main task is Blaze entity views, keyset pagination, or Blaze criteria queries over JPA entities — use `blaze-persistence`
 - The main task is PostgreSQL schema, indexing, JSONB, or partition design — use `postgres-master`
-- The main task is Redis caching, distributed locking, rate limiting, or RedisTemplate depth — use `redis-patterns`
-- The main task is OAuth2/Keycloak role mapping and token-conversion detail — use `keycloak-patterns`
+- The main task is Redis caching, distributed locking, rate limiting, or RedisTemplate depth — use `redis-master`
+- The main task is OAuth2/Keycloak role mapping and token-conversion detail — use `keycloak-master`
 - The main task is mostly review or audit of existing code — use `java-code-review`
 
 ## Reference Guide
@@ -66,7 +67,7 @@ Implementation guide for turning a settled Spring Boot design into production-re
 
 ## Implementation Ladder
 
-1. **Confirm the boundary is already decided.** If the real problem is architecture, Maven module layout, or layering, route first.
+1. **Confirm the boundary is already decided and that Spring is actually explicit.** If the real problem is generic Java architecture, Maven module layout, or framework-neutral layering, route first.
 2. **Generate the narrowest production code needed.** Controller, service, repository, DTO, config, or handler — not everything by reflex.
 3. **Apply Spring defaults intentionally.** Constructor injection, validation, typed config, transaction boundaries, problem details.
 4. **Add the right test level.** Unit, slice, or integration based on what changed.
@@ -105,6 +106,7 @@ Implementation guide for turning a settled Spring Boot design into production-re
 ## Gotchas
 
 - “Generate a Spring Boot feature” easily turns into architecture churn if service boundaries were never settled first.
+- Generic terms like “controller”, “service”, or “repository” are not enough by themselves; this skill should engage only when the request is clearly Spring-specific.
 - Large copy-paste quickstarts age badly; keep the main file focused on implementation decisions and route details to references.
 - Security and persistence examples look interchangeable across apps, but token mapping and fetch strategy usually belong to specialist skills.
 - Test examples should prove behavior, not just context startup.
@@ -149,6 +151,7 @@ public class ProductServiceImpl implements ProductService {
 - Tests match the change scope instead of defaulting to only one test style
 - Security, JPA tuning, and logging detail are routed to the owning skills when they get deep
 - The final implementation is runnable and production-facing, not just framework-shaped
+- The request actually called for Spring-specific implementation rather than generic Java code
 
 ## See References
 - `maven-master` for Maven multi-module structure, BOMs, and module-aware build rules

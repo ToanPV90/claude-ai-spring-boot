@@ -25,7 +25,7 @@ metadata:
   role: specialist
   scope: implementation
   output-format: code + guidance
-  related-skills: jpa-patterns, jooq-patterns, postgres-master, spring-boot-engineer, spring-boot-patterns, java-code-review, tdd-guide
+  related-skills: jpa-master, jooq-master, postgres-master, spring-boot-engineer, spring-boot-master, java-code-review, tdd-guide
 ---
 
 # Blaze-Persistence
@@ -47,9 +47,9 @@ Decision guide for using Blaze-Persistence as the JPA-centric middle path betwee
 - The codebase should stay JPA/Hibernate-centric while gaining richer query and projection capabilities
 
 ## When Not to Use
-- The task is ordinary aggregate CRUD, fetch tuning, lazy loading, or transaction/relationship behavior — use `jpa-patterns`
-- The task is SQL-first reporting, CTE-heavy analytics, or database-native query design — use `jooq-patterns`
-- The task is controller/service/repository ownership or DTO boundary design — use `spring-boot-patterns`
+- The task is ordinary aggregate CRUD, fetch tuning, lazy loading, or transaction/relationship behavior — use `jpa-master`
+- The task is SQL-first reporting, CTE-heavy analytics, or database-native query design — use `jooq-master`
+- The task is controller/service/repository ownership or DTO boundary design — use `spring-boot-master`
 - The task is broad architecture/decomposition tradeoffs — use `java-architect`
 - The task is review-only risk analysis rather than implementation guidance — use `java-code-review`
 
@@ -72,7 +72,7 @@ Decision guide for using Blaze-Persistence as the JPA-centric middle path betwee
 | Offset pagination is too slow on large tables | Large ordered result set is paying growing offset cost | Use Blaze keyset pagination |
 | Specifications are too awkward for a projection-heavy search endpoint | Dynamic filters and projection design are now fighting each other | Use Blaze criteria builder + entity views |
 | The service should keep JPA entities for writes but expose optimized read models | Aggregate writes and query-side reads want different shapes | Use Blaze for read paths, JPA for aggregates |
-| The query needs SQL-first reporting features outside the entity model | The problem is no longer entity-centric | Stop and route to `jooq-patterns` |
+| The query needs SQL-first reporting features outside the entity model | The problem is no longer entity-centric | Stop and route to `jooq-master` |
 
 ## Persistence Decision Ladder
 
@@ -81,7 +81,7 @@ Decision guide for using Blaze-Persistence as the JPA-centric middle path betwee
 3. If dynamic filtering and projection composition are the main pain point, use Blaze criteria builder.
 4. Pick fetch strategies deliberately for subviews and collections instead of relying on the default shape blindly.
 5. If pagination depth is the bottleneck, prefer keyset pagination over large offsets.
-6. If the query is fundamentally SQL-shaped or database-native, switch to `jooq-patterns` instead of forcing Blaze to act like jOOQ.
+6. If the query is fundamentally SQL-shaped or database-native, switch to `jooq-master` instead of forcing Blaze to act like jOOQ.
 
 ## Quick Mapping
 

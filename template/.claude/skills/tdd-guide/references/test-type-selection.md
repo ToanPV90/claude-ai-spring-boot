@@ -6,12 +6,12 @@ Start with the narrowest test that proves the behavior.
 
 | Layer | Annotation / Tooling | Use When | Route Elsewhere |
 |------|-----------------------|----------|-----------------|
-| Controller | `@WebMvcTest` | HTTP routing, validation, request/response mapping, security response codes | Use `spring-boot-engineer` if you need implementation scaffolding |
+| Controller | `@WebMvcTest` | HTTP routing, validation, request/response mapping, security response codes | Use `spring-boot-engineer` only when you need Spring Boot implementation scaffolding |
 | Service | JUnit 5 + Mockito | Business rules, branching logic, orchestration decisions | Use `java-code-review` for review-only concerns |
-| Repository | `@DataJpaTest` + real database | Custom queries, persistence rules, data integrity | Use `jpa-patterns` for deeper ORM/fetch/query guidance |
+| Repository | `@DataJpaTest` + real database | Custom queries, persistence rules, data integrity | Use `jpa-master` for deeper ORM/fetch/query guidance |
 | Full integration | `@SpringBootTest` + TestContainers | End-to-end feature verification across layers | Keep this focused; do not make every test an integration test |
-| Kafka flow | `@SpringBootTest` + `@EmbeddedKafka` or TestContainers | Message routing, retry/DLT behavior, idempotency | Use `kafka-patterns/references/testing.md` for concrete mechanics |
-| Redis flow | `@SpringBootTest` or `@DataRedisTest` + TestContainers | Cache hit/miss, eviction, TTL, RedisTemplate behavior | Use `redis-patterns/references/testing.md` for concrete mechanics |
+| Kafka flow | `@SpringBootTest` + `@EmbeddedKafka` or TestContainers | Message routing, retry/DLT behavior, idempotency | Use `kafka-master/references/testing.md` for concrete mechanics |
+| Redis flow | `@SpringBootTest` or `@DataRedisTest` + TestContainers | Cache hit/miss, eviction, TTL, RedisTemplate behavior | Use `redis-master/references/testing.md` for concrete mechanics |
 
 ## Heuristics
 

@@ -29,9 +29,23 @@ Generate `.github/workflows/ci.yml` with:
 Generate `docker-compose.yml` for runtime dependencies:
 - PostgreSQL, Redis, Kafka, RabbitMQ — only what the app actually uses
 - Named volumes for data persistence
-- Health checks on all services
+- Health checks using `/actuator/health` for the Spring Boot service; `pg_isready` / `redis-cli ping` for dependencies
 - Environment variables for Spring Boot connection config
 - Network isolation
+
+**Spring Boot health check example:**
+```yaml
+services:
+  app:
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health/liveness"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+```
+
+Always add `spring-boot-starter-actuator` to `pom.xml` before generating Docker Compose — health checks require it.
 
 ## Dockerfile (Spring Boot)
 

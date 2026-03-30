@@ -1,10 +1,10 @@
 ---
 name: tdd-guide
-description: Workflow guidance for practicing Test-Driven Development in Java Spring Boot using a strict red-green-refactor loop and behavior-first test selection. Use when building or fixing Spring Boot code test-first, choosing the right test slice, or keeping implementation work anchored to a failing test.
+description: Workflow guidance for practicing Test-Driven Development in Java using a strict red-green-refactor loop and behavior-first test selection. Use when building or fixing Java code test-first, choosing the right test level, or keeping implementation work anchored to a failing test.
 license: MIT
 metadata:
   author: local
-  version: "1.1.0"
+  version: "1.1.1"
   domain: testing
   triggers:
     - TDD
@@ -21,32 +21,32 @@ metadata:
   role: workflow
   scope: process
   output-format: code + guidance
-  related-skills: spring-boot-engineer, java-architect, java-code-review, kafka-patterns, redis-patterns, jpa-patterns
+  related-skills: spring-boot-engineer, java-architect, java-code-review, kafka-master, redis-master, jpa-master
 ---
 
-# TDD Guide — Java Spring Boot
+# TDD Guide — Java
 
-Own the workflow, not every framework-specific testing recipe.
+Own the workflow, not every framework-specific testing recipe. Stay Java-first until a specific stack is explicit.
 
 ## When to Use
 
 - The user wants strict red-green-refactor discipline
 - A new feature or bug fix should start from a failing test
-- You need to choose between controller, service, repository, and full integration tests
+- You need to choose between unit, repository, integration, and framework-specific tests
 - The work risks drifting into code-first implementation instead of behavior-first slices
 
 ## When Not to Use
 
-- The task is Kafka-specific test mechanics; use `kafka-patterns`
-- The task is Redis-specific caching or RedisTemplate tests; use `redis-patterns`
-- The task is JPA fetch/query troubleshooting rather than TDD workflow; use `jpa-patterns`
-- The task is generic implementation scaffolding after the test type is already chosen; use `spring-boot-engineer`
+- The task is Kafka-specific test mechanics; use `kafka-master`
+- The task is Redis-specific caching or RedisTemplate tests; use `redis-master`
+- The task is JPA fetch/query troubleshooting rather than TDD workflow; use `jpa-master`
+- The task is explicit Spring Boot implementation scaffolding after the test type is already chosen; use `spring-boot-engineer`
 
 ## Reference Guide
 
 | Topic | File | Load When |
 |------|------|-----------|
-| Spring Boot TDD examples and patterns | `references/patterns.md` | You need concrete `@WebMvcTest`, `@DataJpaTest`, service, or integration examples |
+| Spring Boot TDD examples and patterns (only when Spring Boot is explicit) | `references/patterns.md` | You need concrete `@WebMvcTest`, `@DataJpaTest`, service, or integration examples after the work is already Spring-specific |
 | Test type selection | `references/test-type-selection.md` | You need more detail on which test slice to choose and what each one should prove |
 | Common TDD gotchas | `references/gotchas.md` | The work is drifting into code-first, fragile tests, or over-broad integration coverage |
 
@@ -56,8 +56,8 @@ Own the workflow, not every framework-specific testing recipe.
 |--------|--------------|
 | Started writing production code before a failing test exists | Stop and write the smallest failing behavior test first |
 | Unsure what test layer to start with | Use `references/test-type-selection.md` |
-| New feature touches HTTP contract | Start with `@WebMvcTest` |
-| Complex persistence/query behavior is the risk | Start with `@DataJpaTest` or route to `jpa-patterns` |
+| New feature touches an HTTP contract in Spring Boot | Start with `@WebMvcTest` |
+| Complex persistence/query behavior is the risk | Start with `@DataJpaTest` or route to `jpa-master` |
 | Async Kafka/Redis behavior is the risk | Keep the workflow here, but load the specialist testing reference |
 
 ## Red-Green-Refactor Ladder
@@ -73,12 +73,12 @@ Own the workflow, not every framework-specific testing recipe.
 
 | Concern | Default Test |
 |--------|---------------|
-| HTTP routing / validation / response shape | `@WebMvcTest` |
+| HTTP routing / validation / response shape in Spring Boot | `@WebMvcTest` |
 | Pure business logic | JUnit 5 + Mockito |
 | Custom repository/query behavior | `@DataJpaTest` + real database |
 | End-to-end feature wiring | `@SpringBootTest` + TestContainers |
-| Kafka flow | Workflow here + `kafka-patterns/references/testing.md` |
-| Redis flow | Workflow here + `redis-patterns/references/testing.md` |
+| Kafka flow | Workflow here + `kafka-master/references/testing.md` |
+| Redis flow | Workflow here + `redis-master/references/testing.md` |
 
 ## Constraints
 

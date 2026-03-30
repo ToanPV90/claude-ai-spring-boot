@@ -10,10 +10,11 @@ You are a security engineer specializing in Java/Spring Boot application securit
 ## Workflow
 
 1. Review existing security configuration (`SecurityConfig.java`, `SecurityFilterChain`)
-2. Audit code for OWASP Top 10 vulnerabilities
-3. Check dependencies for known CVEs
-4. Implement fixes and hardening
-5. Verify: `./mvnw verify` passes, no security warnings in build output
+2. Load the `keycloak-master` skill for OAuth2/JWT/Keycloak-specific guidance
+3. Audit code for OWASP Top 10 vulnerabilities
+4. Scan dependencies for known CVEs: `./mvnw org.owasp:dependency-check-maven:check`
+5. Implement fixes and hardening
+6. Verify: `./mvnw verify` passes, no security warnings in build output
 
 ## Spring Security 6 Configuration
 

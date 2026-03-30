@@ -9,11 +9,14 @@ You are a test automation engineer for Java/Spring Boot applications. Focus on J
 
 ## Workflow
 
-1. Analyze the code that needs testing (read the source files)
-2. Determine test type needed (unit, slice, integration)
-3. Write tests following the patterns below
-4. Run `./mvnw test` to verify all tests pass
-5. Check coverage: `./mvnw verify` (JaCoCo report at `target/site/jacoco/index.html`)
+1. Load the `tdd-guide` skill — follow RED-GREEN-REFACTOR: write failing test first, then implement
+2. Analyze the code that needs testing (read the source files)
+3. Determine test type needed (unit, slice, integration)
+4. Write the failing test first (RED)
+5. Implement/verify code passes the test (GREEN)
+6. Assess refactoring opportunities (REFACTOR)
+7. Run `./mvnw test` to verify all tests pass
+8. Check coverage: `./mvnw verify` (JaCoCo report at `target/site/jacoco/index.html`)
 
 ## Test Pyramid
 

@@ -66,7 +66,7 @@ public interface OrderSummaryView {
 }
 ```
 
-Keep mapping expressions small and read-model-focused. If the expression turns into database-specific reporting logic, route to `jooq-patterns`.
+Keep mapping expressions small and read-model-focused. If the expression turns into database-specific reporting logic, route to `jooq-master`.
 
 ## Limit Collection Shape Deliberately
 
@@ -96,5 +96,5 @@ Default rule: keep writes on JPA aggregates unless updatable views clearly simpl
 - Always include `@IdMapping`.
 - Do not leak managed entities through view methods unless that tradeoff is intentional.
 - Keep view contracts small; if the view starts mirroring the whole entity graph, the abstraction is losing value.
-- Derived mappings should stay projection-oriented; if they become SQL-heavy, the problem likely belongs in `jooq-patterns`.
-- If the goal is SQL-heavy analytics rather than entity-centric read models, route to `jooq-patterns`.
+- Derived mappings should stay projection-oriented; if they become SQL-heavy, the problem likely belongs in `jooq-master`.
+- If the goal is SQL-heavy analytics rather than entity-centric read models, route to `jooq-master`.

@@ -1,55 +1,56 @@
 ---
 name: java-architect
-description: Architecture guidance for enterprise Java and Spring systems with an emphasis on service boundaries, integration choices, resilience, security posture, and delivery tradeoffs. Use when deciding how a Spring Boot or cloud-native Java system should be structured before turning the work into concrete implementation.
+description: Architecture guidance for enterprise Java systems with an emphasis on service boundaries, integration choices, resilience, security posture, and delivery tradeoffs. Use when deciding how a Java system should be structured before turning the work into framework-specific implementation.
 license: MIT
 metadata:
   author: local
-  version: "1.2.0"
+  version: "1.2.1"
   domain: backend
   triggers:
     - Java architecture
-    - Spring architecture
+    - framework-neutral architecture
     - microservices architecture
     - service boundaries
     - system design
     - reactive vs blocking
-    - Spring Cloud
+    - cloud-native architecture
     - enterprise Java
     - architecture tradeoffs
     - ADR
   role: specialist
   scope: architecture
   output-format: guidance + decisions
-  related-skills: maven-master, spring-boot-patterns, spring-boot-engineer, design-patterns, jpa-patterns, keycloak-patterns, java-code-review
+  related-skills: maven-master, spring-boot-master, spring-boot-engineer, design-patterns, jpa-master, keycloak-master, java-code-review
 ---
 
 # Java Architect
 
-Decision guide for shaping Java and Spring systems before committing to concrete implementation, framework wiring, or subsystem-specific optimization.
+Decision guide for shaping Java systems before committing to framework-specific implementation, framework wiring, or subsystem-specific optimization.
 
 ## When to Use
 - The task is about service boundaries, module decomposition, sync vs async communication, or system-level tradeoffs
-- A Spring Boot solution needs architectural defaults for data access, security posture, resilience, or deployment shape
+- A Java solution needs architectural defaults for data access, security posture, resilience, or deployment shape before framework-specific implementation starts
 - You need to choose between reactive and blocking models, monolith vs microservice boundaries, or shared library vs service ownership
 - The user wants an architectural recommendation, ADR direction, or migration path before implementation starts
+- The work should stay framework-neutral until Spring Boot, Quarkus, Micronaut, or another stack is explicitly chosen
 - The task includes module decomposition, parent/aggregator POM choices, or build-structure ownership — route to `maven-master`
 
 ## When Not to Use
-- The task is mainly generating or modifying Spring Boot code — use `spring-boot-engineer`
+- The task is mainly generating or modifying Spring Boot code after Spring is already explicit — use `spring-boot-engineer`
 - The task is parent POM, reactor/module layout, `dependencyManagement`, or `pluginManagement` structure — use `maven-master`
-- The task is layering controllers, services, repositories, DTOs, or exception handling inside one application/module — use `spring-boot-patterns`
-- The task is JPA query tuning, fetch strategy, or persistence troubleshooting — use `jpa-patterns`
+- The task is layering controllers, services, repositories, DTOs, or exception handling inside one application/module — use `spring-boot-master`
+- The task is JPA query tuning, fetch strategy, or persistence troubleshooting — use `jpa-master`
 - The task is mostly code review or bug-risk analysis — use `java-code-review`
-- The task is implementation-level security wiring for OAuth2/JWT/roles — use `keycloak-patterns`
+- The task is implementation-level security wiring for OAuth2/JWT/roles — use `keycloak-master`
 
 ## Reference Guide
 
 | Topic | Reference | Load When |
 |------|-----------|-----------|
-| Spring Boot setup, project structure, platform defaults | `references/spring-boot-setup.md` | Deciding package structure, starter selection, configuration defaults, and platform conventions |
+| Spring Boot platform defaults (only when Spring Boot is explicit) | `references/spring-boot-setup.md` | Deciding package structure, starter selection, configuration defaults, and platform conventions after Spring Boot is already chosen |
 | Reactive architecture and WebFlux/R2DBC tradeoffs | `references/reactive-webflux.md` | Choosing reactive vs blocking execution models or shaping reactive flows |
 | JPA optimization and read/write data design | `references/jpa-optimization.md` | Evaluating repository strategy, projections, query tuning, or persistence performance tradeoffs |
-| Spring Security architecture | `references/spring-security.md` | Choosing authentication, authorization, filter-chain, and token-validation approaches |
+| Spring Security architecture (only when Spring is explicit) | `references/spring-security.md` | Choosing authentication, authorization, filter-chain, and token-validation approaches once the stack is already Spring-based |
 | Testing strategy for architecture decisions | `references/testing-patterns.md` | Selecting test layers, contract boundaries, integration coverage, and test infrastructure |
 
 ## Symptom Triage
@@ -68,7 +69,7 @@ Decision guide for shaping Java and Spring systems before committing to concrete
 2. **Is one deployable unit enough?** Prefer a modular monolith until scale, coupling, or team autonomy justify service splits.
 3. **Does the runtime need reactive behavior?** Choose reactive only for concrete throughput, latency, streaming, or connection-pressure reasons.
 4. **Which integration style fits the failure model?** Use sync calls for immediate consistency and events for decoupling/time-shifted workflows.
-5. **Which concerns should stay out of this decision?** Route layering to `spring-boot-patterns`, implementation to `spring-boot-engineer`, and subsystem tuning to specialist skills.
+5. **Which concerns should stay out of this decision?** Route framework-specific layering and implementation only after the stack is explicit; for Spring Boot, use `spring-boot-master` and `spring-boot-engineer`, and route subsystem tuning to specialist skills.
 
 ## Quick Mapping
 
@@ -97,12 +98,13 @@ Decision guide for shaping Java and Spring systems before committing to concrete
 - Do not split services only because microservices sound more scalable
 - Do not recommend reactive stacks when the real workload is ordinary CRUD
 - Do not let shared libraries become hidden cross-service domain ownership
-- Do not duplicate detailed subsystem guidance already owned by `spring-boot-engineer`, `jpa-patterns`, or `keycloak-patterns`
+- Do not duplicate detailed framework or subsystem guidance already owned by `spring-boot-engineer`, `jpa-master`, or `keycloak-master`
 
 ## Gotchas
 
 - “Enterprise architecture” advice becomes noise if it skips the actual tradeoff and jumps to buzzwords.
 - A clean package structure does not prove the domain boundaries are right.
+- Framework names often appear early in a conversation; do not let that force Spring-specific defaults before the framework choice is actually settled.
 - Reactive designs often fail because teams adopt Reactor everywhere instead of only where the runtime constraint exists.
 - Microservices reduce some coupling while increasing operational coupling; treat that as a cost, not a free upgrade.
 - Architecture recommendations should shape implementation, not duplicate full implementation templates.
@@ -128,8 +130,8 @@ Keep a modular monolith boundary now; publish domain events internally for later
 ```text
 Order write model stays in the core service.
 Reporting reads move to a separate query path.
-OAuth2/JWT wiring routes to keycloak-patterns.
-Controller/service/repository shape routes to spring-boot-patterns.
+OAuth2/JWT wiring routes to keycloak-master.
+If Spring Boot is explicit, controller/service/repository shape routes to spring-boot-master.
 ```
 
 ## What to Verify
@@ -137,11 +139,11 @@ Controller/service/repository shape routes to spring-boot-patterns.
 - Domain and data ownership are explicit
 - Reactive, microservice, and event-driven choices are justified by workload or org needs
 - Subsystem-specific implementation detail is routed to the right skill instead of duplicated here
-- The output leaves a clear path for `spring-boot-engineer` or `spring-boot-patterns` to implement next
+- The output leaves a clear path for framework-specific implementation once the stack is explicit; for Spring Boot, that means `spring-boot-engineer` or `spring-boot-master`
 
 ## See References
 - `maven-master` for Maven multi-module structure, parent/aggregator roles, and module-aware build rules
-- `references/spring-boot-setup.md` for Spring project structure and platform defaults inside a module or service
+- `references/spring-boot-setup.md` for Spring project structure and platform defaults once Spring Boot is chosen
 - `references/reactive-webflux.md` for reactive architecture and execution-model tradeoffs
 - `references/jpa-optimization.md` for persistence strategy and performance depth
 - `references/spring-security.md` for security architecture choices

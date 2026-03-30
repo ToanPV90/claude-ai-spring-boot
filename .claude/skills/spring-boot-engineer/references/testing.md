@@ -229,7 +229,7 @@ class UserControllerTest {
 
 Use `@WithMockUser` for general Spring Security controller tests. If the
 application runs as an OAuth2 resource server and authorization depends on JWT
-claims like `realm_access` or client roles, route to `keycloak-patterns` for
+claims like `realm_access` or client roles, route to `keycloak-master` for
 `jwt()`-based MockMvc examples instead.
 
 ## Data JPA Testing

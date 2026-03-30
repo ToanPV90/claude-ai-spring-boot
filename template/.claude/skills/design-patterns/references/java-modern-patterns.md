@@ -1,4 +1,4 @@
-# Modern Java and Spring Alternatives
+# Modern Java and Framework Alternatives
 
 ## Sealed Interfaces + Records
 
@@ -19,7 +19,7 @@ public record RefundPayment(UUID orderId) implements PaymentCommand {
 
 This can replace ad-hoc marker interfaces or overly abstract class hierarchies.
 
-## Spring Dependency Injection
+## Spring Dependency Injection Example
 
 Spring often replaces manual pattern implementations:
 - singleton bean scope instead of manual Singleton

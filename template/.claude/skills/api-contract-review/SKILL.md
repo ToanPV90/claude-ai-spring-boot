@@ -1,10 +1,10 @@
 ---
 name: api-contract-review
-description: Review guidance for REST API contracts with emphasis on HTTP semantics, versioning, backward compatibility, error formats, and release readiness. Use when auditing endpoint design, controller-facing API changes, or whether a REST contract remains safe and consistent for clients.
+description: Review guidance for REST API contracts with emphasis on HTTP semantics, versioning, backward compatibility, error formats, and release readiness. Use when auditing endpoint design, controller-facing API changes, or whether a REST contract remains safe and consistent for clients while keeping review scope/completeness explicit.
 license: MIT
 metadata:
   author: local
-  version: "1.1.0"
+  version: "1.1.3"
   domain: backend
   triggers:
     - review API
@@ -20,7 +20,7 @@ metadata:
   role: reviewer
   scope: review
   output-format: analysis
-  related-skills: java-code-review, spring-boot-patterns, spring-boot-engineer, keycloak-patterns
+  related-skills: java-code-review, backend-practices-review, spring-boot-master, spring-boot-engineer, keycloak-master
 ---
 
 # API Contract Review Skill
@@ -34,20 +34,32 @@ Decision guide for reviewing HTTP-facing API behavior before merge or release wi
 - The risk is client breakage or confusing API behavior rather than low-level implementation defects
 
 ## When Not to Use
-- The task is implementation-heavy Spring Boot coding rather than API review — use `spring-boot-engineer`
-- The task is mostly layer ownership, DTO placement, or controller/service responsibility — use `spring-boot-patterns`
-- The task is generic Java/Spring bug-risk review with little HTTP surface — use `java-code-review`
-- The main concern is Keycloak/OAuth2 token mapping or role extraction rather than HTTP contract behavior — use `keycloak-patterns`
+- The task is implementation-heavy work rather than API review — use the appropriate implementation skill; for Spring Boot, that is `spring-boot-engineer`
+- The task is mostly layer ownership, DTO placement, or controller/service responsibility — use `spring-boot-master`
+- The main concern is broader backend production-safety defaults such as trust boundaries, retry safety, dependency-call containment, storage/files, or lifecycle behavior — use `backend-practices-review`
+- The task is generic Java bug-risk review with little HTTP surface — use `java-code-review`
+- The main concern is Keycloak/OAuth2 token mapping or role extraction rather than HTTP contract behavior — use `keycloak-master`
 
 ## Reference Guide
 
 | Topic | Reference | Load When |
 |------|-----------|-----------|
+| Shared review intake, completeness, severity, and disposition contract | `references/review-intake-and-output.md` | Starting any API review so client-risk findings are scoped and reported consistently |
 | HTTP verbs, URL design, idempotency, and status code semantics | `references/http-semantics.md` | Reviewing endpoint shape, verbs, URL patterns, and response codes |
 | Versioning, backward compatibility, deprecation, and release safety | `references/versioning-and-compatibility.md` | Checking whether a change breaks existing clients |
 | DTO boundaries, pagination, and response consistency | `references/request-response-design.md` | Reviewing payload structure and API-facing model choices |
 | Error format, auth-related responses, and OpenAPI alignment | `references/errors-and-documentation.md` | Reviewing error envelopes, 401/403 behavior, and generated spec accuracy |
 | Review checklist and failure modes | `references/review-checklist.md` | Running a final API review pass or avoiding repeated contract mistakes |
+
+## Shared Review Contract
+
+Start every review by stating the target, the diff or files examined, supporting context used, and whether the result is **complete** or **partial** because important inputs were missing.
+
+For each finding, keep the report shape explicit:
+- **severity** — `Critical`, `High`, `Medium`, or `Low`
+- **disposition** — `patch`, `decision-needed`, `defer`, or `dismiss`
+- **impact** — client breakage, confusing semantics, compatibility risk, or release risk
+- **next move** — patch now, route to a specialty skill, or ask for a product/API decision
 
 ## Symptom Triage
 
@@ -127,13 +139,16 @@ public ResponseEntity<UserResponse> get(@PathVariable Long id) {
 ```
 
 ## What to Verify
+- The review states target, context used, missing context, and whether completeness is full or partial
 - HTTP verbs, URLs, and status codes match the real behavior exposed to clients
+- Findings use an explicit disposition (`patch`, `decision-needed`, `defer`, or `dismiss`) instead of an implicit recommendation
 - Request/response models are API-safe and consistent across related endpoints
 - Versioning and compatibility risks are explicit before merge or release
 - Error and auth-related responses are consistent, non-leaky, and client-usable
 - Deep implementation, layering, or provider-specific concerns are routed to the owning skills
 
 ## See References
+- `references/review-intake-and-output.md` for the shared review scope/completeness/disposition contract
 - `references/http-semantics.md` for verbs, URL design, status codes, and content negotiation
 - `references/versioning-and-compatibility.md` for version strategy, breaking changes, and deprecation rules
 - `references/request-response-design.md` for DTOs, pagination, and response consistency

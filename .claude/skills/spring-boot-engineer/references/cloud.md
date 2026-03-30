@@ -510,10 +510,10 @@ ENTRYPOINT ["java","-cp","app:app/lib/*","com.example.Application"]
 ## Related Skills for Messaging, Cache, and Auth
 
 For complete Spring Kafka patterns (producer, consumer, DLT, @RetryableTopic, testing):
-→ Load skill: `kafka-patterns`
+→ Load skill: `kafka-master`
 
 For Spring Data Redis patterns (@Cacheable, RedisTemplate, distributed lock, pub/sub, testing):
-→ Load skill: `redis-patterns`
+→ Load skill: `redis-master`
 
 For Keycloak + Spring Security 6 OAuth2 resource server (JWT, role mapping, method security, testing):
-→ Load skill: `keycloak-patterns`
+→ Load skill: `keycloak-master`

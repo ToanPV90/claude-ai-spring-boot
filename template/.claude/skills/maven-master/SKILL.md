@@ -1,10 +1,10 @@
 ---
 name: maven-master
-description: Design guidance for Maven multi-module Java projects with clear parent POM, module boundaries, dependency management, and build conventions. Use when structuring a Java/Spring repository into Maven modules, defining aggregator vs parent POM roles, or standardizing module-level build and dependency rules.
+description: Design guidance for Maven multi-module Java projects with clear parent POM, module boundaries, dependency management, and build conventions. Use when structuring a Java repository into Maven modules, defining aggregator vs parent POM roles, or standardizing module-level build and dependency rules.
 license: MIT
 metadata:
   author: local
-  version: "1.0.0"
+  version: "1.0.1"
   domain: architecture
   triggers:
     - Maven multi-module
@@ -20,12 +20,12 @@ metadata:
   role: specialist
   scope: architecture
   output-format: guidance + structure
-  related-skills: java-architect, spring-boot-patterns, spring-boot-engineer, postgres-master, jooq-patterns, java-code-review
+  related-skills: java-architect, spring-boot-master, spring-boot-engineer, postgres-master, jooq-master, java-code-review
 ---
 
 # Maven Master
 
-Decision guide for structuring Java and Spring projects as Maven multi-module builds with explicit parent/aggregator roles, stable module boundaries, and predictable build behavior.
+Decision guide for structuring Java projects as Maven multi-module builds with explicit parent/aggregator roles, stable module boundaries, and predictable build behavior.
 
 ## When to Use
 - The project should prefer Maven multi-module structure over a single flat module
@@ -34,15 +34,15 @@ Decision guide for structuring Java and Spring projects as Maven multi-module bu
 - CI, Docker, or test guidance must become module-aware instead of assuming one `pom.xml` and one `src/` tree
 
 ## When Not to Use
-- The task is only controller/service/repository layering inside one module — use `spring-boot-patterns`
-- The task is implementation inside already-settled modules — use `spring-boot-engineer`
+- The task is only controller/service/repository layering inside one module — use `spring-boot-master`
+- The task is implementation inside already-settled modules — use the appropriate implementation skill; for Spring Boot modules, use `spring-boot-engineer`
 - The task is high-level service decomposition or runtime architecture tradeoffs — use `java-architect`
 - The task is Gradle or build-tool migration away from Maven — this skill does not own that decision
 
 ## Version Assumptions
 - Maven 3.9+
 - Java 21 by default for new generated projects
-- Spring Boot 3.x modules where Spring Boot is involved
+- If the repo contains Spring Boot modules, keep Spring Boot 3.x guidance inside those modules
 - Multi-module guidance assumes a root reactor POM with child module POMs checked into the same repo
 
 ## Reference Guide
@@ -92,7 +92,7 @@ Decision guide for structuring Java and Spring projects as Maven multi-module bu
 | Make child module responsibilities explicit | `common`, `api`, `service`, `starter`, `platform`, test modules only when justified |
 | Centralize versions and plugin defaults | `dependencyManagement` and `pluginManagement` in the parent (or imported BOM where justified) |
 | Keep build commands module-aware | Use `-pl`, `-am`, and aggregate verification intentionally |
-| Align Spring layering inside modules | Layered packages still matter within each module |
+| Align the chosen framework layering inside modules | Layered packages still matter within each module; for Spring Boot, keep the standard controller/service/repository flow |
 
 ### MUST NOT DO
 - Do not treat Maven multi-module as a reason to split every package into its own child module
@@ -103,7 +103,7 @@ Decision guide for structuring Java and Spring projects as Maven multi-module bu
 
 ## Gotchas
 - A root POM can be both parent and aggregator, but those roles are still conceptually different.
-- Multi-module structure does not replace layered Spring design; it adds another boundary above packages.
+- Multi-module structure does not replace framework-level layering inside a module; it adds another boundary above packages.
 - A BOM/dependencies module is useful for larger OSS-style repos, but smaller apps can keep dependency management in the root parent POM.
 - Reactor build order follows real inter-module dependencies, not the presence of `dependencyManagement` alone.
 
@@ -133,7 +133,7 @@ Decision guide for structuring Java and Spring projects as Maven multi-module bu
 - Child modules have explicit responsibilities and naming
 - Dependency/plugin versions are centralized rather than repeated
 - Docker/CI/test commands match the multi-module layout
-- Layered Spring guidance still applies inside each module
+- Framework-level layering guidance still applies inside each module; for Spring Boot, that still means controller/service/repository boundaries
 
 ## See References
 - `references/parent-and-aggregation.md` for parent vs aggregator vs BOM roles

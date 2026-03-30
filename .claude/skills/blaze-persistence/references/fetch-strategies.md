@@ -15,7 +15,7 @@ Treat fetch strategy as a deliberate design choice for subviews and collections,
 | Small `@ToOne` subview | Join-style fetching is usually fine | Accidental over-fetch if the view keeps growing |
 | Small to-many collection on a detail view | A secondary collection-oriented fetch can be fine | Hidden N+1 or row multiplication if reused broadly |
 | Large to-many collection in list/search results | Prefer a collection-safe strategy instead of relying on join-style fetching | Huge result sets, duplicate parent rows, unstable paging |
-| The query needs SQL-first aggregation to shape nested collections | Reassess and possibly route to `jooq-patterns` | Forcing Blaze to solve a reporting problem |
+| The query needs SQL-first aggregation to shape nested collections | Reassess and possibly route to `jooq-master` | Forcing Blaze to solve a reporting problem |
 
 ## Rules
 
@@ -32,5 +32,5 @@ Treat fetch strategy as a deliberate design choice for subviews and collections,
 
 ## Route Elsewhere
 
-- Plain fetch tuning on entities and aggregate graphs → `jpa-patterns`
-- SQL-first nested shaping, reporting, or database-native aggregation → `jooq-patterns`
+- Plain fetch tuning on entities and aggregate graphs → `jpa-master`
+- SQL-first nested shaping, reporting, or database-native aggregation → `jooq-master`

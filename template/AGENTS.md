@@ -22,23 +22,28 @@ Spring Boot 3.x Maven project with TDD workflow, Claude AI integration, and ente
     │   ├── docker-expert.md
     │   ├── kubernetes-specialist.md
     │   └── code-reviewer.md
-└── skills/            # 20 skills across 5 categories
-        ├── spring-boot-patterns/   # Core Spring Boot patterns
+└── skills/            # 25 skills across 6 categories
+        ├── backend-practices-review/ # Cross-cutting backend production-safety review
+        ├── spring-boot-master/   # Core Spring Boot structure guidance
         ├── spring-boot-engineer/   # Spring Boot 3.x configs
+        ├── openapi-master/        # OpenAPI specs and springdoc
+        ├── observability-master/  # Actuator, metrics, tracing
+        ├── resilience-master/     # Resilience4j fault tolerance
+        ├── liquibase-master/      # Liquibase migrations and rollback
         ├── java-architect/         # Enterprise Java patterns
         ├── maven-master/           # Maven multi-module structure
-        ├── jpa-patterns/           # JPA/Hibernate patterns
+        ├── jpa-master/           # JPA/Hibernate persistence guidance
         ├── postgres-master/        # PostgreSQL schema and index design
         ├── blaze-persistence/      # Entity views and keyset pagination
-        ├── kafka-patterns/         # Event-driven with Kafka
-        ├── redis-patterns/         # Caching with Redis
-        ├── keycloak-patterns/      # OAuth2/OIDC security
+        ├── kafka-master/         # Event-driven delivery with Kafka
+        ├── redis-master/         # Caching and coordination with Redis
+        ├── keycloak-master/      # Keycloak-backed OAuth2/OIDC security
         ├── tdd-guide/              # Test-driven development
         ├── clean-code/             # DRY, KISS, YAGNI
         ├── java-code-review/       # Code review checklists
         ├── design-patterns/        # GoF patterns (Java)
-        ├── jooq-patterns/          # Type-safe SQL with jOOQ
-        ├── logging-patterns/       # SLF4J, structured logging
+        ├── jooq-master/          # Type-safe SQL and reporting with jOOQ
+        ├── logging-master/       # SLF4J, MDC, structured logging
         ├── api-contract-review/    # REST API review
         ├── request-refactor-plan/  # Refactor planning
         ├── audit-codex/            # Cross-audit via Codex
@@ -50,25 +55,32 @@ Spring Boot 3.x Maven project with TDD workflow, Claude AI integration, and ente
 |------|----------|-------|
 | AI workflow rules | `CLAUDE.md` | Plan mode, verification, TDD |
 | Agents (all) | `.claude/agents/*.md` | 8 agents, invoke with @mention |
-| Spring Boot patterns | `.claude/skills/spring-boot-patterns/` | Controllers, services, repos |
+| Backend practice review | `.claude/skills/backend-practices-review/` | Trust boundaries, retries, storage/files, and lifecycle safety |
+| Spring Boot structure | `.claude/skills/spring-boot-master/` | Controllers, services, repos |
 | Spring Boot 3.x configs | `.claude/skills/spring-boot-engineer/` | WebFlux, Security, JPA setup |
-| JPA/Hibernate | `.claude/skills/jpa-patterns/` | N+1 fixes, lazy loading, transactions |
+| OpenAPI docs | `.claude/skills/openapi-master/` | springdoc, Swagger UI, contract-first tradeoffs |
+| Observability | `.claude/skills/observability-master/` | Actuator, Micrometer, tracing, Prometheus |
+| Resilience | `.claude/skills/resilience-master/` | Circuit breakers, retries, timeouts, bulkheads |
+| Liquibase migrations | `.claude/skills/liquibase-master/` | changelogs, rollback, schema evolution |
+| JPA/Hibernate | `.claude/skills/jpa-master/` | N+1 fixes, lazy loading, transactions |
 | Maven module structure | `.claude/skills/maven-master/` | Parent POMs, modules, BOMs, build commands |
 | PostgreSQL design | `.claude/skills/postgres-master/` | Tables, constraints, indexes, JSONB, partitioning |
 | Blaze-Persistence | `.claude/skills/blaze-persistence/` | Entity views, keyset pagination, CriteriaBuilder |
-| Kafka patterns | `.claude/skills/kafka-patterns/` | Producers, consumers, DLT, retry |
-| Redis patterns | `.claude/skills/redis-patterns/` | @Cacheable, pub/sub, rate limiting |
-| Security (OAuth2) | `.claude/skills/keycloak-patterns/` | JWT, realm roles, @PreAuthorize |
+| Kafka messaging | `.claude/skills/kafka-master/` | Producers, consumers, DLT, retry |
+| Redis caching | `.claude/skills/redis-master/` | @Cacheable, pub/sub, rate limiting |
+| Security (OAuth2) | `.claude/skills/keycloak-master/` | JWT, realm roles, @PreAuthorize |
 | TDD workflow | `.claude/skills/tdd-guide/` | Red-green-refactor, TestContainers |
 | Clean Code | `.claude/skills/clean-code/` | DRY, KISS, YAGNI, naming |
 | Code review | `.claude/skills/java-code-review/` | Null safety, concurrency checks |
 | Design patterns | `.claude/skills/design-patterns/` | Factory, Builder, Strategy, etc. |
-| Type-safe SQL | `.claude/skills/jooq-patterns/` | jOOQ for complex queries |
-| Logging | `.claude/skills/logging-patterns/` | SLF4J, MDC, structured JSON |
+| Type-safe SQL | `.claude/skills/jooq-master/` | jOOQ for complex queries |
+| Logging | `.claude/skills/logging-master/` | SLF4J, MDC, structured JSON |
 | API review | `.claude/skills/api-contract-review/` | HTTP semantics, versioning |
 | Refactor planning | `.claude/skills/request-refactor-plan/` | Safe staged refactor plans and rollout steps |
 | Codex audit | `.claude/skills/audit-codex/` | External Codex-based second-opinion review |
 | Create new skill | `.claude/skills/write-a-skill/` | Author Claude skills with thin mains and references |
+
+Generic Java skills should stay framework-neutral by default. Route to `spring-boot-engineer` only when Spring or Spring Boot-specific implementation work is explicitly requested.
 
 ## MAVEN CONVENTIONS
 - **Group ID**: `vn.lukepham.projects` (hardcoded)
@@ -121,4 +133,4 @@ mvn wrapper:wrapper                 # Generate mvnw
 - This template includes NO application source code — you start from scratch
 - Docker Compose for dependencies: create `docker-compose.yml` as needed
 - GitHub Actions CI: create `.github/workflows/` as needed
-- 18 skills have `references/` subdirs with supplementary documentation
+- 24 skills have `references/` subdirs with supplementary documentation

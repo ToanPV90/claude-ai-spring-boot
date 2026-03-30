@@ -1,10 +1,10 @@
 ---
 name: clean-code
-description: Readability-focused refactoring guidance for Java and Spring codebases. Use when simplifying complex code, improving naming, reducing duplication, shrinking large methods, or addressing maintainability issues without changing the overall architecture.
+description: Readability-focused refactoring guidance for Java codebases. Use when simplifying complex code, improving naming, reducing duplication, shrinking large methods, or addressing maintainability issues without changing the overall architecture.
 license: MIT
 metadata:
   author: local
-  version: "1.1.0"
+  version: "1.1.1"
   domain: backend
   triggers:
     - clean code
@@ -38,7 +38,7 @@ Decision guide for simplifying code without smuggling in architecture churn or p
 ## When Not to Use
 - The user needs a rollout plan, staged migration, or tiny-commit refactor sequence — use `request-refactor-plan`
 - The main question is pattern selection or extension-model design — use `design-patterns`
-- The work is primarily architecture, module boundaries, or large Spring design tradeoffs — use `java-architect` or `spring-boot-patterns`
+- The work is primarily architecture, module boundaries, or framework/layering tradeoffs — use `java-architect`; if the task is explicitly Spring Boot layering, use `spring-boot-master`
 - The task is a formal Java review pass rather than readability-first refactoring — use `java-code-review`
 
 ## Reference Guide

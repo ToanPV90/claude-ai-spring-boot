@@ -52,22 +52,27 @@ node claude-ai-spring-boot/bin/create.js my-project
 │       ├── README.md
 │       ├── api-contract-review/
 │       ├── audit-codex/
-│       ├── maven-master/
-│       ├── postgres-master/
+│       ├── backend-practices-review/
+│       ├── blaze-persistence/
 │       ├── clean-code/
 │       ├── design-patterns/
 │       ├── java-architect/
 │       ├── java-code-review/
-│       ├── blaze-persistence/
-│       ├── jooq-patterns/
-│       ├── jpa-patterns/
-│       ├── kafka-patterns/
-│       ├── keycloak-patterns/
-│       ├── logging-patterns/
-│       ├── redis-patterns/
+│       ├── jpa-master/
+│       ├── jooq-master/
+│       ├── kafka-master/
+│       ├── keycloak-master/
+│       ├── liquibase-master/
+│       ├── logging-master/
+│       ├── maven-master/
+│       ├── observability-master/
+│       ├── openapi-master/
+│       ├── postgres-master/
+│       ├── redis-master/
 │       ├── request-refactor-plan/
+│       ├── resilience-master/
 │       ├── spring-boot-engineer/
-│       ├── spring-boot-patterns/
+│       ├── spring-boot-master/
 │       ├── tdd-guide/
 │       └── write-a-skill/
 ├── CLAUDE.md
@@ -79,4 +84,4 @@ node claude-ai-spring-boot/bin/create.js my-project
     └── pom.xml            # Deployable Spring Boot application module
 ```
 
-The generated skill tree now ships with **20 skills**. **18** of them use `references/` for deeper examples and troubleshooting so the main `SKILL.md` files stay thin and high-signal. The current Java/Spring guidance is intentionally consistent: prefer a Maven multi-module project layout with a root reactor plus child modules, keep layered Spring structure (`Controller → Service → Repository`) inside each application module, and let Spring Security authenticate through the filter chain / resource-server support instead of teaching custom `/login` controllers for bearer-token APIs.
+The generated skill tree now ships with **25 skills**. **24** of them use `references/` for deeper examples and troubleshooting so the main `SKILL.md` files stay thin and high-signal. Generic Java skills stay framework-neutral by default, and framework-specific skills such as `spring-boot-engineer` should only take over when the request explicitly names Spring Boot or another framework-specific stack. The catalog now also includes `backend-practices-review` for auditing recurring backend production risks such as weak trust boundaries, retry-unsafe mutations, fragile dependency calls, unsafe file handling, and missing lifecycle/cleanup discipline, while the review-oriented skills share a common intake/output contract so review target, completeness, severity, and disposition stay explicit. Within Spring Boot modules, prefer a layered structure (`Controller → Service → Repository`) and let Spring Security authenticate through the filter chain / resource-server support instead of teaching custom `/login` controllers for bearer-token APIs.

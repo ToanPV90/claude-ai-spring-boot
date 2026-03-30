@@ -10,7 +10,7 @@
 
 - Blaze is still entity-centric.
 - jOOQ is a better fit when the problem is SQL-first, report-row-first, or database-native.
-- If the query wants CTE-heavy reporting, window functions, or database-specific operators as the main design axis, route to `jooq-patterns`.
+- If the query wants CTE-heavy reporting, window functions, or database-specific operators as the main design axis, route to `jooq-master`.
 
 ## Testing Defaults
 

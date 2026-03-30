@@ -1,4 +1,4 @@
-# TDD Patterns — Java Spring Boot
+# TDD Patterns — Spring Boot Examples
 
 ## Test Naming Convention
 

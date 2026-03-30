@@ -29,4 +29,4 @@
 ## Route Elsewhere
 
 - If the design question is really about API projection shape, route to `blaze-persistence`.
-- If the problem is JSONB query implementation or PostgreSQL-native query code, route to `jooq-patterns`.
+- If the problem is JSONB query implementation or PostgreSQL-native query code, route to `jooq-master`.

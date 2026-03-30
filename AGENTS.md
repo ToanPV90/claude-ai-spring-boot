@@ -15,8 +15,8 @@ NPM scaffolding tool that creates Spring Boot projects with Claude AI agents/ski
 │   ├── pom.xml            # Maven config template (__PROJECT_NAME__ placeholder)
 │   ├── AGENTS.md          # Template project docs (user-facing)
 │   ├── CLAUDE.md          # Template AI instructions (user-facing)
-│   └── .claude/           # Pre-configured agents & skills (48 files)
-├── .claude/               # Meta-level: skills for THIS scaffolding project (48 files)
+│   └── .claude/           # Pre-configured agents & mirrored skills
+├── .claude/               # Meta-level skills/agents for THIS scaffolding project
 └── package.json           # NPM package metadata
 ```
 
@@ -26,7 +26,7 @@ NPM scaffolding tool that creates Spring Boot projects with Claude AI agents/ski
 | Modify CLI behavior | `bin/create.js` | 100 lines, copies template/ to target |
 | Update Spring Boot template | `template/*` | What users get after scaffolding |
 | Add/modify agents | `.claude/agents/*.md` | 8 agent definitions |
-| Add/modify skills | `.claude/skills/*/SKILL.md` | 20 skills across 5 categories |
+| Add/modify skills | `.claude/skills/*/SKILL.md` | 25 skills across 6 categories |
 | Template instructions | `template/AGENTS.md`, `template/CLAUDE.md` | User-facing docs |
 
 ## KEY DISTINCTIONS
@@ -38,21 +38,24 @@ NPM scaffolding tool that creates Spring Boot projects with Claude AI agents/ski
 
 **⚠️ Drift Risk:** Root and template `.claude/` are near-identical copies. Changes to one MUST be manually synced to the other.
 
-## SKILLS CATALOG (20 skills, 5 categories)
+## SKILLS CATALOG (25 skills, 6 categories)
 
-**Code Quality:** clean-code, java-code-review, design-patterns, write-a-skill
-**Architecture:** spring-boot-patterns, java-architect, maven-master, jooq-patterns, request-refactor-plan, api-contract-review
-**Testing:** tdd-guide, audit-codex
-**Framework/Data:** jpa-patterns, postgres-master, blaze-persistence, kafka-patterns, redis-patterns, spring-boot-engineer, logging-patterns
-**Security:** keycloak-patterns
+**Code Quality:** java-code-review, api-contract-review, backend-practices-review, clean-code, audit-codex
+**Architecture & Design:** design-patterns, java-architect, maven-master, request-refactor-plan
+**Testing & TDD:** tdd-guide
+**Framework, Data & Platform:** spring-boot-engineer, spring-boot-master, openapi-master, observability-master, resilience-master, liquibase-master, jpa-master, postgres-master, blaze-persistence, jooq-master, logging-master, kafka-master, redis-master
+**Security:** keycloak-master
+**Skill Authoring:** write-a-skill
 
-18 skills have `references/` subdirs with supplementary docs.
+24 skills have `references/` subdirs with supplementary docs.
+
+Generic Java skills should stay framework-neutral by default. Route to `spring-boot-engineer` only when Spring or Spring Boot-specific implementation work is explicitly requested.
 
 ## AGENTS (8 total)
 
 | Agent | Specialization |
 |-------|---------------|
-| java-architect | Enterprise Java, Spring ecosystem, cloud-native |
+| java-architect | Enterprise Java, framework-neutral architecture, cloud-native |
 | spring-boot-engineer | Spring Boot 3.x, WebFlux, Security |
 | test-automator | Unit, integration, slice, contract tests |
 | security-engineer | DevSecOps, cloud security, compliance |

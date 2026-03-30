@@ -31,4 +31,4 @@
 ## Route Elsewhere
 
 - If the problem becomes application migration sequencing or service ownership, route to `java-architect`.
-- If the problem becomes implementation wiring for Boot config or repositories, route to `spring-boot-engineer`.
+- If the problem becomes framework-specific implementation wiring for config or repositories, route to the owning implementation skill; in this repo that means `spring-boot-engineer` when Spring Boot is explicit.

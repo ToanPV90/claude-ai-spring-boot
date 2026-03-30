@@ -54,7 +54,7 @@ public ResponseEntity<ErrorResponse> handleAll(Exception ex) {
 | Public endpoints explicitly in `permitAll()` | Accidentally secured health/docs endpoints |
 | Error responses do not leak claim structure or role names | Information disclosure |
 
-Provider-specific JWT mapping belongs to `keycloak-patterns`; this reference only reviews the HTTP-visible contract behavior.
+Provider-specific JWT mapping belongs to `keycloak-master`; this reference only reviews the HTTP-visible contract behavior.
 
 ## OpenAPI Documentation
 

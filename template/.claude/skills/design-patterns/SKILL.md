@@ -1,10 +1,10 @@
 ---
 name: design-patterns
-description: Pattern-selection guidance for Java and Spring codebases with focused implementation defaults. Use when deciding whether a Factory, Builder, Strategy, Decorator, Observer, Adapter, or related pattern is justified, or when refactoring rigid code into a clearer extension model.
+description: Pattern-selection guidance for Java codebases with focused implementation defaults. Use when deciding whether a Factory, Builder, Strategy, Decorator, Observer, Adapter, or related pattern is justified, or when refactoring rigid code into a clearer extension model.
 license: MIT
 metadata:
   author: local
-  version: "1.1.0"
+  version: "1.1.1"
   domain: architecture
   triggers:
     - design pattern
@@ -22,12 +22,12 @@ metadata:
   role: guide
   scope: architecture
   output-format: code + guidance
-  related-skills: clean-code, java-architect, spring-boot-patterns, kafka-patterns
+  related-skills: clean-code, java-architect, spring-boot-master, kafka-master
 ---
 
 # Design Patterns Skill
 
-Decision guide for when a pattern is actually warranted in Java and Spring applications.
+Decision guide for when a pattern is actually warranted in Java applications.
 
 ## When to Use
 - The user asks whether a specific pattern fits a design problem
@@ -38,7 +38,7 @@ Decision guide for when a pattern is actually warranted in Java and Spring appli
 ## When Not to Use
 - A simple conditional, constructor, helper method, or composition already solves the problem clearly
 - The task is mostly code cleanup, naming, or readability — use `clean-code`
-- The decision is mostly about Spring layering, dependency injection, controllers, or service boundaries — use `spring-boot-patterns`
+- The decision is mostly about Spring layering, dependency injection, controllers, or service boundaries — use `spring-boot-master`
 - The problem is system-level architecture or service boundaries rather than class-level structure — use `java-architect`
 
 ## Reference Guide
@@ -48,7 +48,7 @@ Decision guide for when a pattern is actually warranted in Java and Spring appli
 | Builder, Factory, Singleton | `references/creational.md` | Choosing how objects should be created or assembled |
 | Strategy, Observer, Template Method | `references/behavioral.md` | Choosing how behavior varies, events propagate, or workflows differ |
 | Decorator, Adapter | `references/structural.md` | Wrapping behavior or integrating mismatched interfaces |
-| Sealed interfaces, records, Spring events | `references/java-modern-patterns.md` | Preferring modern Java/Spring alternatives over classic GoF forms |
+| Sealed interfaces, records, and framework-native alternatives | `references/java-modern-patterns.md` | Preferring modern Java or framework-native alternatives over classic GoF forms |
 | Failure modes and overuse | `references/gotchas.md` | Avoiding pattern cargo culting or framework-hostile designs |
 
 ## Pattern Selection Ladder
@@ -58,8 +58,8 @@ Decision guide for when a pattern is actually warranted in Java and Spring appli
 3. **Is runtime behavior swapping the real problem?** Consider Strategy.
 4. **Is behavior wrapping the same abstraction?** Consider Decorator.
 5. **Is interface mismatch the issue?** Consider Adapter.
-6. **Is event fan-out or callback notification the issue?** Consider Observer or Spring events.
-7. **Do you just need one shared Spring-managed component?** Prefer Spring singleton scope over a manual Singleton pattern.
+6. **Is event fan-out or callback notification the issue?** Consider Observer or framework-native events.
+7. **Do you just need one shared container-managed component?** Prefer the existing DI/container singleton scope over a manual Singleton pattern.
 
 ## Quick Mapping
 
@@ -70,7 +70,7 @@ Decision guide for when a pattern is actually warranted in Java and Spring appli
 | Type-based object creation | Factory | Repeated `new` logic spread across callers |
 | Add cross-cutting behavior while preserving interface | Decorator | Deep inheritance hierarchies |
 | Integrate incompatible third-party or legacy API | Adapter | Contaminating domain code with foreign interface details |
-| Publish domain/application events | Observer / Spring events | Tight direct coupling across many listeners |
+| Publish domain/application events | Observer / framework events | Tight direct coupling across many listeners |
 
 ## Constraints
 
@@ -80,7 +80,7 @@ Decision guide for when a pattern is actually warranted in Java and Spring appli
 |------|-------------------|
 | Start with the simplest design that preserves clarity | Plain composition before GoF patterns |
 | Tie the pattern to one real pressure | creation, variation, wrapping, adaptation, or fan-out |
-| Keep Spring idioms in mind | Use DI, bean scopes, and events instead of manual infrastructure patterns when appropriate |
+| Keep framework/container idioms in mind | Use DI, bean scopes, and events instead of manual infrastructure patterns when appropriate |
 | Make the extension seam obvious | Small interface, focused abstraction, narrow responsibility |
 
 ### MUST NOT DO
@@ -93,7 +93,7 @@ Decision guide for when a pattern is actually warranted in Java and Spring appli
 ## Gotchas
 
 - Pattern overuse is worse than a missing pattern. The first question is always whether a simpler shape is enough.
-- In Spring applications, manual Singleton and Observer implementations are often weaker than built-in bean scopes and event publishing.
+- In container-managed applications, manual Singleton and Observer implementations are often weaker than built-in bean scopes and event publishing.
 - Replacing one `switch` with a large registry can still be over-engineering if the set of cases is tiny and stable.
 - Template Method often looks elegant but can freeze behavior into inheritance when composition would evolve more safely.
 - Decorator and Observer chains become opaque quickly; keep tracing and testability in mind before stacking them.
@@ -168,12 +168,12 @@ public final class ReportRequest {
 ## What to Verify
 - The pattern solves a real design pressure, not hypothetical future flexibility
 - The abstraction is smaller and clearer than the code it replaced
-- Spring/framework features are not being reimplemented manually
+- Framework/container features are not being reimplemented manually
 - Tests can exercise the seam without excessive setup or global state
 
 ## See References
 - `references/creational.md` for Builder, Factory, and Singleton guidance
 - `references/behavioral.md` for Strategy, Observer, and Template Method guidance
 - `references/structural.md` for Decorator and Adapter guidance
-- `references/java-modern-patterns.md` for sealed interfaces, records, and Spring-native alternatives
+- `references/java-modern-patterns.md` for sealed interfaces, records, and framework-native alternatives
 - `references/gotchas.md` for common failure modes and overuse patterns

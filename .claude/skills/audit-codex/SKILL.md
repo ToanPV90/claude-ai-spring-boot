@@ -1,10 +1,10 @@
 ---
 name: audit-codex
-description: External-audit workflow for sending a diff or recent commit history to OpenAI Codex CLI, then validating the returned findings against local code and project intent. Use when the user wants a second-opinion review, cross-audit, or independent validation beyond the normal local review pass.
+description: External-audit workflow for sending a diff or recent commit history to OpenAI Codex CLI, then validating the returned findings against local code and project intent. Use when the user wants a second-opinion review, cross-audit, or independent validation beyond the normal local review pass while keeping review scope/completeness explicit.
 license: MIT
 metadata:
   author: local
-  version: "1.1.0"
+  version: "1.1.1"
   domain: backend
   triggers:
     - codex audit
@@ -17,7 +17,7 @@ metadata:
   role: workflow
   scope: review
   output-format: analysis
-  related-skills: java-code-review, clean-code, api-contract-review, jpa-patterns, kafka-patterns, redis-patterns, keycloak-patterns
+  related-skills: java-code-review, clean-code, api-contract-review, backend-practices-review, jpa-master, kafka-master, redis-master, keycloak-master
 allowed-tools: Bash(git:*), Bash(codex:*)
 ---
 
@@ -34,6 +34,22 @@ Workflow guide for getting an external review from Codex CLI and filtering the r
 - The task is a normal in-repo review without a request for external validation — use `java-code-review`
 - The task is readability cleanup or refactoring rather than audit workflow — use `clean-code` or `request-refactor-plan`
 - The main concern is API contract semantics rather than general code audit — use `api-contract-review`
+
+## Reference Guide
+
+| Topic | Reference | Load When |
+|------|-----------|-----------|
+| Shared review intake, completeness, severity, and disposition contract | `references/review-intake-and-output.md` | Starting an external audit so the target, missing context, and validated output shape stay explicit |
+
+## Shared Review Contract
+
+Start every external audit by stating the target, diff source or commit range, supporting context used, and whether the result is **complete** or **partial** because important inputs were missing.
+
+For each validated finding, keep the report shape explicit:
+- **severity** — `Critical`, `High`, `Medium`, or `Low`
+- **disposition** — `patch`, `decision-needed`, `defer`, or `dismiss`
+- **impact** — why the finding matters after local validation
+- **next move** — patch now, route to a sibling review skill, or hold for a decision
 
 ## Symptom Triage
 
@@ -100,12 +116,13 @@ Workflow guide for getting an external review from Codex CLI and filtering the r
 
 | Validated Finding Type | Route / Reference |
 |------------------------|------------------|
-| General Java/Spring bug risk | `java-code-review` |
+| General Java bug risk or framework-heavy diff | `java-code-review` |
 | HTTP contract / versioning / status code issue | `api-contract-review` |
-| JPA fetch / transaction / persistence concern | `jpa-patterns` |
-| Kafka producer / consumer / retry / DLT concern | `kafka-patterns` |
-| Redis cache / TTL / lock / rate-limiting concern | `redis-patterns` |
-| Keycloak / JWT / role-mapping concern | `keycloak-patterns` |
+| Backend production-safety issue (trust boundary, retry safety, dependency call risk, storage/files) | `backend-practices-review` |
+| JPA fetch / transaction / persistence concern | `jpa-master` |
+| Kafka producer / consumer / retry / DLT concern | `kafka-master` |
+| Redis cache / TTL / lock / rate-limiting concern | `redis-master` |
+| Keycloak / JWT / role-mapping concern | `keycloak-master` |
 | Readability-only cleanup | `clean-code` |
 
 ## Codex Commands
@@ -129,8 +146,13 @@ If `codex` CLI is not installed:
 2. Route to `java-code-review` for the local review pass, then pull in specialty skills only if the findings clearly belong there.
 
 ## What to Verify
+- The audit states target, context used, missing context, and whether completeness is full or partial
 - The review target actually matched the intended diff or commit range
 - Every external finding was checked against real code and local docs
 - Validated findings were severity-ranked instead of forwarded raw
+- Validated findings use an explicit disposition (`patch`, `decision-needed`, `defer`, or `dismiss`)
 - Noise and misunderstandings were filtered out before reporting
 - The final report distinguishes validated findings from clean-audit outcomes
+
+## See References
+- `references/review-intake-and-output.md` for the shared review scope/completeness/disposition contract

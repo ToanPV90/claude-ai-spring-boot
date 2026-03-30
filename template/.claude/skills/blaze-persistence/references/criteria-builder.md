@@ -57,9 +57,9 @@ Use manual criteria composition when the query is still domain-specific and read
 - filters and joins are dynamic enough that Specifications become awkward
 - the query stays entity-centric and does not need SQL-first reporting features
 
-If the query still fits simple aggregate reads or normal `JpaSpecificationExecutor` usage, stay with `jpa-patterns`.
+If the query still fits simple aggregate reads or normal `JpaSpecificationExecutor` usage, stay with `jpa-master`.
 
 ## Route Elsewhere
 
-- plain entity CRUD and fetch tuning → `jpa-patterns`
-- SQL-first analytics, window functions, CTE-heavy reporting → `jooq-patterns`
+- plain entity CRUD and fetch tuning → `jpa-master`
+- SQL-first analytics, window functions, CTE-heavy reporting → `jooq-master`

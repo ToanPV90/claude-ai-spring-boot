@@ -10,7 +10,7 @@ When the main concern is:
 - backward compatibility
 - response/error format consistency
 
-## Route To `jpa-patterns`
+## Route To `jpa-master`
 
 When the main concern is:
 - N+1 queries
@@ -34,7 +34,17 @@ When the main concern is:
 - foreign-key indexing, JSONB column modeling, or partitioning review concerns
 - migration-risk questions around `create index concurrently`, large-table rewrites, or PostgreSQL-specific DDL behavior
 
-## Route To `kafka-patterns`
+## Route To `backend-practices-review`
+
+When the main concern is:
+- trust boundaries, validation discipline, or unsafe assumptions about client-controlled input
+- duplicate writes, retry safety, or concurrent delivery that needs idempotency/duplicate protection
+- slow or failure-prone dependency calls living inline in request/transaction flows
+- file upload architecture, object-storage choice, or durable-key-vs-URL persistence
+- buffering whole uploads in memory, large-payload boundedness, or staging/cleanup risk
+- lifecycle modeling, cleanup, expiration, or operator visibility across long-lived backend flows
+
+## Route To `kafka-master`
 
 When the main concern is:
 - listener acknowledgment semantics
@@ -43,7 +53,7 @@ When the main concern is:
 - consumer group and error-handler correctness
 - listener concurrency, partition-to-thread mapping, or consumer-thread safety
 
-## Route To `redis-patterns`
+## Route To `redis-master`
 
 When the main concern is:
 - cache TTL strategy
@@ -56,7 +66,7 @@ When the main concern is:
 - `@Cacheable` plus `@Transactional` interaction
 - choosing between `@RedisHash`, Spring Cache, and `RedisTemplate`
 
-## Route To `logging-patterns`
+## Route To `logging-master`
 
 When the main concern is:
 - MDC or trace context lost across async boundaries
@@ -69,7 +79,7 @@ When the main concern is:
 - WebFlux concurrency limits, backpressure, or scheduler ownership
 - blocking work placed on event-loop or reactive worker threads
 
-## Route To `keycloak-patterns`
+## Route To `keycloak-master`
 
 When the main concern is:
 - JWT role mapping

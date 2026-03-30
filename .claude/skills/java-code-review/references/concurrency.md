@@ -97,9 +97,9 @@ Review for:
 
 Route outward when needed:
 - WebFlux/reactive execution model depth → `java-architect`
-- Kafka listener concurrency, ack, or consumer-thread semantics → `kafka-patterns`
-- Redis distributed locking or rate-limiting correctness → `redis-patterns`
-- JPA locking / optimistic-lock semantics → `jpa-patterns`
+- Kafka listener concurrency, ack, or consumer-thread semantics → `kafka-master`
+- Redis distributed locking or rate-limiting correctness → `redis-master`
+- JPA locking / optimistic-lock semantics → `jpa-master`
 
 ## High-Signal Finding Shapes
 

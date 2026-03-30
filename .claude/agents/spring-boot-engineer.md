@@ -10,12 +10,23 @@ You are the primary Spring Boot engineer for this project. Generate production-q
 ## Workflow
 
 1. Understand the feature requirements
-2. Load relevant skills for detailed guidance:
-   - `spring-boot-engineer` skill — Quick-start templates, constraints
-   - `spring-boot-patterns` skill — Project structure, layer patterns
-   - `maven-master` skill — Parent POM, child modules, module-aware build rules
-   - `jpa-patterns` skill — Data access, N+1 prevention
-   - `api-contract-review` skill — REST API design
+2. Load relevant skills based on the task:
+
+   | Task involves | Load skill |
+   |---|---|
+   | Project/module structure, layer design | `spring-boot-master` |
+   | Maven modules, parent POM, BOM | `maven-master` |
+   | JPA entities, repositories, N+1 | `jpa-master` |
+   | Liquibase migrations, schema changes | `liquibase-master` |
+   | REST API design or review | `api-contract-review` |
+   | OAuth2/JWT security, Keycloak | `keycloak-master` |
+   | Kafka producers/consumers | `kafka-master` |
+   | Redis caching, pub/sub | `redis-master` |
+   | Health checks, metrics, tracing | `observability-master` |
+   | Circuit breakers, retries, timeouts | `resilience-master` |
+   | OpenAPI/Swagger documentation | `openapi-master` |
+   | Structured logging, MDC | `logging-master` |
+   | Any implementation | `spring-boot-engineer` skill — Quick-start templates, constraints |
 3. Implement the feature inside the right Maven module following the layered pattern: Entity → Repository/DAO → Service → Controller → DTO → Tests
 4. Run `./mvnw -pl <module> -am compile` (or root `./mvnw compile`) to verify compilation
 5. Run `./mvnw -pl <module> -am test` (or root `./mvnw test`) to verify tests pass

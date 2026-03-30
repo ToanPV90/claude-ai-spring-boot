@@ -7,7 +7,7 @@ For the generated-project guidance in this repo, the default architecture is:
 - authentication happens in the Spring Security filter chain
 - bearer-token APIs use OAuth2 resource-server support
 - controllers expose business endpoints, not `/login` endpoints by default
-- provider-specific JWT claim mapping belongs to `keycloak-patterns`
+- provider-specific JWT claim mapping belongs to `keycloak-master`
 
 ## Security Configuration
 
@@ -54,7 +54,7 @@ Do **not** model authentication as a custom `/login` controller by default.
 - If the application truly owns first-party username/password authentication, treat that as an explicit variant and document it separately rather than teaching it as the default Spring Security shape.
 - If that first-party variant is chosen, call out the additional dependencies, token-issuance strategy, refresh flow, and operational tradeoffs explicitly.
 
-For concrete JWT/resource-server wiring and Keycloak role extraction, route to `keycloak-patterns`.
+For concrete JWT/resource-server wiring and Keycloak role extraction, route to `keycloak-master`.
 
 ## Method-Level Security
 
@@ -136,7 +136,7 @@ to a stable subject like JWT `sub`.
 If the system uses Keycloak or another external OIDC provider, treat the
 `oauth2.resourceserver.jwt` block below as a routing hint, not the full
 implementation recipe. Provider-specific issuer setup, JWT claim mapping, and
-realm/client-role extraction belong to `keycloak-patterns`.
+realm/client-role extraction belong to `keycloak-master`.
 
 ```yaml
 spring:

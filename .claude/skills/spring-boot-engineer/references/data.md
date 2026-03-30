@@ -106,7 +106,7 @@ public interface UserRepository extends JpaRepository<User, Long>,
 
 ## Repository with Specifications
 
-For deep JPA `Specification`, fetch-tuning, and projection tradeoffs, route to `jpa-patterns`.
+For deep JPA `Specification`, fetch-tuning, and projection tradeoffs, route to `jpa-master`.
 If the query stays entity-centric but projections and dynamic filters become awkward together, route to `blaze-persistence`.
 
 ```java
@@ -282,13 +282,13 @@ public abstract class AuditableEntity {
 }
 ```
 
-If the application uses a JWT resource server or Keycloak, route principal-name / `sub` semantics to `keycloak-patterns` instead of assuming `authentication.getName()` means email or username.
+If the application uses a JWT resource server or Keycloak, route principal-name / `sub` semantics to `keycloak-master` instead of assuming `authentication.getName()` means email or username.
 
 If the audit fields model timestamps that cross process or timezone boundaries, prefer `Instant` at the entity/base-class level and convert for presentation later.
 
 ## Projections
 
-For projection strategy depth, use `jpa-patterns` first. If the endpoint needs entity-centric read models that outgrow constructor expressions or interface projections, use `blaze-persistence`.
+For projection strategy depth, use `jpa-master` first. If the endpoint needs entity-centric read models that outgrow constructor expressions or interface projections, use `blaze-persistence`.
 
 ```java
 // Interface-based projection
@@ -322,7 +322,7 @@ List<UserSummaryDto> dtos = userRepository.findAllBy(UserSummaryDto.class);
 
 ## Query Optimization
 
-This section only shows Spring Boot implementation examples. For deep fetch-shaping, paging caveats, and specialist query-design tradeoffs, route to `jpa-patterns` and `blaze-persistence`.
+This section only shows Spring Boot implementation examples. For deep fetch-shaping, paging caveats, and specialist query-design tradeoffs, route to `jpa-master` and `blaze-persistence`.
 
 ```java
 public interface UserRepository extends JpaRepository<User, Long> {

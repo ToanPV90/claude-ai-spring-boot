@@ -33,6 +33,6 @@
 
 ## Route Elsewhere
 
-- If the question becomes aggregate ownership, cascades, or entity lifecycle, route to `jpa-patterns`.
+- If the question becomes aggregate ownership, cascades, or entity lifecycle, route to `jpa-master`.
 - If the question becomes projection shape or read-model design over entities, route to `blaze-persistence`.
-- If the question becomes query implementation, route to `jooq-patterns`.
+- If the question becomes query implementation, route to `jooq-master`.
