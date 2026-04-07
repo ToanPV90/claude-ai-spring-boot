@@ -4,7 +4,7 @@ description: Readability-focused refactoring guidance for Java codebases. Use wh
 license: MIT
 metadata:
   author: local
-  version: "1.1.1"
+  version: "1.2.0"
   domain: backend
   triggers:
     - clean code
@@ -53,6 +53,7 @@ Decision guide for simplifying code without smuggling in architecture churn or p
 
 ## Simplification Ladder
 
+0. **Chesterton's Fence — understand why code exists before removing it.** Check `git blame` for original context. Do not simplify what you do not understand.
 1. **Can naming alone make this clearer?** Rename before extracting.
 2. **Is the method doing more than one thing?** Extract by behavior, not by line count.
 3. **Is duplication repeating knowledge or just structure?** Remove only the knowledge duplication.
@@ -82,6 +83,7 @@ Decision guide for simplifying code without smuggling in architecture churn or p
 | Remove duplication of knowledge, not merely similar syntax | Shared rule yes; coincidental shape no |
 | Keep methods and classes at one level of abstraction | Separate orchestration from detail |
 | Delete dead code when it is truly dead | Fewer branches beat speculative reuse |
+| Simplify one step at a time | Run tests after each individual simplification to isolate regressions |
 
 ### MUST NOT DO
 - Do not replace simple code with a pattern just to look more "clean"
@@ -97,6 +99,21 @@ Decision guide for simplifying code without smuggling in architecture churn or p
 - A short method is not automatically a clear method; over-extraction can destroy flow.
 - Comments often survive longer than the code they explain. Prefer names and structure first, comments for why/constraints only.
 - Utility classes and boolean flag arguments often look harmless at first and then become dumping grounds.
+
+## Common Rationalizations
+
+| What You Hear | What to Think Instead |
+|---------------|----------------------|
+| "These three lines look similar, DRY them" | Similar structure ≠ shared knowledge. Merge only when the duplication repeats the same business rule. |
+| "This method is too long" | Length is a symptom, not the disease. Extract by behavior, not by line count. |
+| "I'll clean this up while I'm here" | Separate refactoring commits from feature commits. |
+
+## Red Flags
+
+- Simplifying code you don't fully understand
+- Mixing refactor and feature changes in one commit
+- Creating new utility files for one-time operations
+- Replacing simple code with patterns "for cleanliness"
 
 ## Minimal Examples
 

@@ -22,7 +22,7 @@ Spring Boot 3.x Maven project with TDD workflow, Claude AI integration, and ente
     │   ├── docker-expert.md
     │   ├── kubernetes-specialist.md
     │   └── code-reviewer.md
-└── skills/            # 25 skills across 6 categories
+└── skills/            # 32 skills across 8 categories
         ├── backend-practices-review/ # Cross-cutting backend production-safety review
         ├── spring-boot-master/   # Core Spring Boot structure guidance
         ├── spring-boot-engineer/   # Spring Boot 3.x configs
@@ -38,8 +38,9 @@ Spring Boot 3.x Maven project with TDD workflow, Claude AI integration, and ente
         ├── kafka-master/         # Event-driven delivery with Kafka
         ├── redis-master/         # Caching and coordination with Redis
         ├── keycloak-master/      # Keycloak-backed OAuth2/OIDC security
+        ├── security-and-hardening/ # OWASP, input validation, Spring Security hardening
         ├── tdd-guide/              # Test-driven development
-        ├── clean-code/             # DRY, KISS, YAGNI
+        ├── clean-code/             # DRY, KISS, YAGNI, Chesterton's Fence
         ├── java-code-review/       # Code review checklists
         ├── design-patterns/        # GoF patterns (Java)
         ├── jooq-master/          # Type-safe SQL and reporting with jOOQ
@@ -47,6 +48,13 @@ Spring Boot 3.x Maven project with TDD workflow, Claude AI integration, and ente
         ├── api-contract-review/    # REST API review
         ├── request-refactor-plan/  # Refactor planning
         ├── audit-codex/            # Cross-audit via Codex
+        ├── spec-driven-development/  # Spec before code workflow
+        ├── planning-and-task-breakdown/ # Task decomposition and sizing
+        ├── incremental-implementation/ # Thin vertical slices
+        ├── debugging-and-error-recovery/ # Systematic root-cause debugging
+        ├── performance-optimization/ # Measure-first performance tuning
+        ├── documentation-and-adrs/   # ADRs and documentation standards
+        ├── ci-cd-and-automation/     # CI/CD pipelines and quality gates
         └── write-a-skill/          # Meta: create new skills
 ```
 
@@ -78,6 +86,14 @@ Spring Boot 3.x Maven project with TDD workflow, Claude AI integration, and ente
 | API review | `.claude/skills/api-contract-review/` | HTTP semantics, versioning |
 | Refactor planning | `.claude/skills/request-refactor-plan/` | Safe staged refactor plans and rollout steps |
 | Codex audit | `.claude/skills/audit-codex/` | External Codex-based second-opinion review |
+| Security hardening | `.claude/skills/security-and-hardening/` | OWASP, input validation, Spring Security, secrets |
+| Spec before code | `.claude/skills/spec-driven-development/` | Feature specs, assumptions, gated phases |
+| Task breakdown | `.claude/skills/planning-and-task-breakdown/` | Decompose features, sizing, dependency order |
+| Incremental delivery | `.claude/skills/incremental-implementation/` | Vertical slices, scope discipline, feature flags |
+| Debugging workflow | `.claude/skills/debugging-and-error-recovery/` | Reproduce, localize, fix root cause, guard |
+| Performance tuning | `.claude/skills/performance-optimization/` | Measure first, N+1, caching, pool sizing |
+| ADRs & documentation | `.claude/skills/documentation-and-adrs/` | Architecture decisions, JavaDoc, module docs |
+| CI/CD pipelines | `.claude/skills/ci-cd-and-automation/` | GitHub Actions, quality gates, Docker builds |
 | Create new skill | `.claude/skills/write-a-skill/` | Author Claude skills with thin mains and references |
 
 Generic Java skills should stay framework-neutral by default. Route to `spring-boot-engineer` only when Spring or Spring Boot-specific implementation work is explicitly requested.
@@ -107,6 +123,19 @@ Generic Java skills should stay framework-neutral by default. Route to `spring-b
 - Spring Security owns authentication through `SecurityFilterChain` / resource-server filters; controllers expose business APIs rather than `/login` flows by default
 - Minimize code — keep changes simple
 
+## COMMANDS (8 slash commands)
+
+| Command | Purpose |
+|---------|---------|
+| `/spec` | Write a structured specification before coding |
+| `/plan` | Break work into sized tasks with dependency ordering |
+| `/build` | Implement next task incrementally with TDD |
+| `/test` | TDD workflow; Prove-It pattern for bug fixes |
+| `/review` | Five-axis code review (correctness, concurrency, security, performance, maintainability) |
+| `/simplify` | Reduce complexity without changing behavior |
+| `/debug` | Systematic root-cause debugging with six-step triage |
+| `/launch` | Pre-launch checklist for production deployment |
+
 ## ANTI-PATTERNS (THIS PROJECT)
 - Never use Lombok
 - Never skip tests
@@ -133,4 +162,4 @@ mvn wrapper:wrapper                 # Generate mvnw
 - This template includes NO application source code — you start from scratch
 - Docker Compose for dependencies: create `docker-compose.yml` as needed
 - GitHub Actions CI: create `.github/workflows/` as needed
-- 24 skills have `references/` subdirs with supplementary documentation
+- 31 skills have `references/` subdirs with supplementary documentation

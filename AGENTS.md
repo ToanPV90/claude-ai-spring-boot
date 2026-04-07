@@ -26,7 +26,7 @@ NPM scaffolding tool that creates Spring Boot projects with Claude AI agents/ski
 | Modify CLI behavior | `bin/create.js` | 100 lines, copies template/ to target |
 | Update Spring Boot template | `template/*` | What users get after scaffolding |
 | Add/modify agents | `.claude/agents/*.md` | 8 agent definitions |
-| Add/modify skills | `.claude/skills/*/SKILL.md` | 25 skills across 6 categories |
+| Add/modify skills | `.claude/skills/*/SKILL.md` | 32 skills across 8 categories |
 | Template instructions | `template/AGENTS.md`, `template/CLAUDE.md` | User-facing docs |
 
 ## KEY DISTINCTIONS
@@ -38,16 +38,18 @@ NPM scaffolding tool that creates Spring Boot projects with Claude AI agents/ski
 
 **⚠️ Drift Risk:** Root and template `.claude/` are near-identical copies. Changes to one MUST be manually synced to the other.
 
-## SKILLS CATALOG (25 skills, 6 categories)
+## SKILLS CATALOG (32 skills, 8 categories)
 
 **Code Quality:** java-code-review, api-contract-review, backend-practices-review, clean-code, audit-codex
 **Architecture & Design:** design-patterns, java-architect, maven-master, request-refactor-plan
 **Testing & TDD:** tdd-guide
 **Framework, Data & Platform:** spring-boot-engineer, spring-boot-master, openapi-master, observability-master, resilience-master, liquibase-master, jpa-master, postgres-master, blaze-persistence, jooq-master, logging-master, kafka-master, redis-master
-**Security:** keycloak-master
+**Security:** keycloak-master, security-and-hardening
+**Engineering Workflow:** spec-driven-development, planning-and-task-breakdown, incremental-implementation, debugging-and-error-recovery
+**Production Readiness:** performance-optimization, documentation-and-adrs, ci-cd-and-automation
 **Skill Authoring:** write-a-skill
 
-24 skills have `references/` subdirs with supplementary docs.
+31 skills have `references/` subdirs with supplementary docs.
 
 Generic Java skills should stay framework-neutral by default. Route to `spring-boot-engineer` only when Spring or Spring Boot-specific implementation work is explicitly requested.
 
@@ -84,6 +86,19 @@ All agents: `model: sonnet`, invoke with `@agent-name`.
 - Maven multi-module structure is the preferred Java project layout: root parent/aggregator POM plus child modules
 - Layered Spring structure is the default inside each application module: Controller → Service → Repository
 - Spring Security guidance should assume filter-chain/resource-server authentication, not custom `/login` controllers, unless a project explicitly owns first-party credential auth
+
+## COMMANDS (8 slash commands)
+
+| Command | Purpose |
+|---------|---------|
+| `/spec` | Write a structured specification before coding |
+| `/plan` | Break work into sized tasks with dependency ordering |
+| `/build` | Implement next task incrementally with TDD |
+| `/test` | TDD workflow; Prove-It pattern for bug fixes |
+| `/review` | Five-axis code review (correctness, concurrency, security, performance, maintainability) |
+| `/simplify` | Reduce complexity without changing behavior |
+| `/debug` | Systematic root-cause debugging with six-step triage |
+| `/launch` | Pre-launch checklist for production deployment |
 
 ## ANTI-PATTERNS (THIS TEMPLATE GENERATOR)
 - Never use Lombok in templates

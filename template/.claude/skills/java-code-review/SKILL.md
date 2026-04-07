@@ -4,7 +4,7 @@ description: Systematic review guidance for Java code with a focus on correctnes
 license: MIT
 metadata:
   author: local
-  version: "1.1.3"
+  version: "1.2.0"
   domain: backend
   triggers:
     - Java code review
@@ -64,6 +64,7 @@ For each finding, keep the output shape explicit:
 
 ## Review Ladder
 
+0. **Review the tests first.** Tests document intent and reveal missing edge cases before you even look at the implementation. If test quality is low, flag it before proceeding.
 1. **Can this change crash, corrupt data, or break security?** Start there.
 2. **Can it silently produce wrong behavior?** Review nullability, exceptions, and state transitions.
 3. **Can it race, deadlock, corrupt state, or ignore cancellation?** Review concurrency and resource handling.
@@ -103,6 +104,7 @@ Red flags:
 | Big Spring Boot diff | Review boundary placement, transactions, DTO/API leakage, and framework behavior | Treating it like plain Java only |
 | Kafka/Redis/Keycloak change | Route to owning specialist skill | Keeping subsystem audits inline here |
 | Large diff | Group by severity and repeated pattern | One comment per repeated issue |
+| Change sizing | ~100 lines ideal, ~300 acceptable, >500 should be split. Splitting strategies: stack PRs, split by module, horizontal (layer-by-layer), vertical (feature slice) | Reviewing an oversized diff as-is |
 
 ## Constraints
 
@@ -117,6 +119,8 @@ Red flags:
 | Anchor findings in impact | Explain bug risk, not just rule violation |
 | Note good patterns when they materially reduce risk | Constructor injection, stable transactions, clear DTO boundary |
 | Route specialty concerns outward when another skill owns the depth | JPA, Kafka, Redis, Keycloak, API contracts |
+| Flag dead or orphaned code | Unused imports, methods, and classes accumulate and confuse; confirm before deleting |
+| Vet new dependencies before approving | Ask: What is the size? Is it maintained? Does it have known vulnerabilities? Is the license compatible? Can we achieve this with existing libs? |
 
 ### MUST NOT DO
 - Do not flood the review with style-only comments while correctness issues remain
@@ -134,6 +138,13 @@ Red flags:
 - A technically correct comment can still be low value if it ignores the actual diff risk.
 - Over-reporting nits trains teams to ignore real review feedback.
 - Framework-specific issues like Kafka ack semantics or Keycloak role mapping need specialist routing, not shallow one-line mentions.
+
+## Common Rationalizations
+
+| Rationalization | Why It Fails |
+|-----------------|--------------|
+| "The tests pass, it must be fine" | Tests pass ≠ correct. Review the test quality itself — missing edge cases, weak assertions, and absent negative tests hide real bugs. |
+| "It's just a small change" | Small changes can have large blast radius. Review impact, not LOC — a one-line default swap can break authorization or data integrity. |
 
 ## Minimal Finding Format
 

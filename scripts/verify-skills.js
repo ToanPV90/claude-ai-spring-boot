@@ -6,6 +6,8 @@ const path = require('node:path');
 const rootDir = process.cwd();
 const rootSkillsDir = path.join(rootDir, '.claude', 'skills');
 const templateSkillsDir = path.join(rootDir, 'template', '.claude', 'skills');
+const rootCommandsDir = path.join(rootDir, '.claude', 'commands');
+const templateCommandsDir = path.join(rootDir, 'template', '.claude', 'commands');
 
 function listFiles(dir, base = dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -101,6 +103,38 @@ function main() {
     validateSkill(file, rootSkillsDir, errors, warnings);
   }
 
+  // Verify commands mirror
+  let commandCount = 0;
+  if (fs.existsSync(rootCommandsDir) && fs.existsSync(templateCommandsDir)) {
+    const rootCmds = listFiles(rootCommandsDir).sort();
+    const templateCmds = listFiles(templateCommandsDir).sort();
+    const rootCmdSet = new Set(rootCmds);
+    const templateCmdSet = new Set(templateCmds);
+
+    for (const file of rootCmds) {
+      if (!templateCmdSet.has(file)) {
+        errors.push(`Command missing from template mirror: ${file}`);
+      }
+    }
+    for (const file of templateCmds) {
+      if (!rootCmdSet.has(file)) {
+        errors.push(`Command missing from root mirror: ${file}`);
+      }
+    }
+    for (const file of rootCmds) {
+      if (!templateCmdSet.has(file)) continue;
+      const rootContent = readFile(path.join(rootCommandsDir, file));
+      const templateContent = readFile(path.join(templateCommandsDir, file));
+      if (rootContent !== templateContent) {
+        errors.push(`Command mirror drift: ${file}`);
+      }
+      if (!rootContent.includes('description:')) {
+        warnings.push(`Command ${file}: missing 'description:' in frontmatter`);
+      }
+    }
+    commandCount = rootCmds.length;
+  }
+
   if (warnings.length > 0) {
     console.warn('Skill verification warnings:\n');
     for (const warning of warnings) {
@@ -117,7 +151,9 @@ function main() {
     process.exit(1);
   }
 
-  console.log(`Skill verification passed for ${rootFiles.length} mirrored files.`);
+  const parts = [`${rootFiles.length} skill files`];
+  if (commandCount > 0) parts.push(`${commandCount} command files`);
+  console.log(`Skill verification passed for ${parts.join(' + ')}.`);
 }
 
 main();

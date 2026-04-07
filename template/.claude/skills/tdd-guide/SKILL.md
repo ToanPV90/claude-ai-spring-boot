@@ -4,7 +4,7 @@ description: Workflow guidance for practicing Test-Driven Development in Java us
 license: MIT
 metadata:
   author: local
-  version: "1.1.1"
+  version: "1.2.0"
   domain: testing
   triggers:
     - TDD
@@ -69,16 +69,52 @@ Own the workflow, not every framework-specific testing recipe. Stay Java-first u
 5. Assess refactoring only after green; skip it if there is no clear value.
 6. Repeat for the next behavior slice.
 
+## Prove-It Pattern for Bug Fixes
+
+When fixing a bug, never fix first. Follow this strict order:
+
+1. **Reproduce** — Write a test that triggers the exact bug. It MUST fail (RED).
+2. **Fix** — Apply the minimal production change to make the reproduction test pass (GREEN).
+3. **Verify** — Confirm the fix does not break existing tests.
+4. **Refactor** — Clean up only if clearly needed.
+
+A bug fix without a prior failing reproduction test is an unproven guess. The reproduction test is the proof that the bug existed and the proof that it is gone.
+
+## Test Size Mapping
+
+| Size | Scope | I/O | Typical Duration | Java / Spring Boot Example |
+|------|-------|-----|------------------|---------------------------|
+| **Small** | Single JVM, single thread | No I/O, no network, no disk | Milliseconds | Pure unit tests — JUnit 5, plain Java classes |
+| **Medium** | Multi-process or single JVM with localhost I/O | Localhost only (embedded DB, in-process servlet) | Seconds | `@DataJpaTest`, `@WebMvcTest`, `@JdbcTest` |
+| **Large** | External systems, real infrastructure | Network, containers, external services | Seconds to minutes | `@SpringBootTest` + Testcontainers, WireMock |
+
+Default to the smallest size that proves the behavior. Promote to a larger size only when the risk lives in the boundary the larger test covers.
+
 ## Quick Mapping
 
 | Concern | Default Test |
 |--------|---------------|
 | HTTP routing / validation / response shape in Spring Boot | `@WebMvcTest` |
-| Pure business logic | JUnit 5 + Mockito |
+| Pure business logic | JUnit 5 (prefer real implementations; use mocks sparingly — see Mock Skepticism below) |
 | Custom repository/query behavior | `@DataJpaTest` + real database |
 | End-to-end feature wiring | `@SpringBootTest` + TestContainers |
 | Kafka flow | Workflow here + `kafka-master/references/testing.md` |
 | Redis flow | Workflow here + `redis-master/references/testing.md` |
+
+## Mock Skepticism
+
+Prefer real implementations over test doubles. When a real dependency is too slow or non-deterministic, reach for the lightest alternative first:
+
+**Real → Fake (in-memory) → Stub → Mock**
+
+| Level | When to use | Example |
+|-------|------------|---------|
+| **Real** | Fast, deterministic, no external I/O | Domain services, value objects, utility classes |
+| **Fake (in-memory)** | Real impl is slow but contract is simple | In-memory repository, H2 instead of Postgres for unit scope |
+| **Stub** | Only the return value matters | `when(clock.instant()).thenReturn(fixed)` |
+| **Mock (verify interactions)** | Behavior at a slow/non-deterministic boundary is the thing under test | Verify an email service was called with correct args |
+
+Mocks that verify internal wiring rather than boundary behavior make tests brittle and coupled to implementation. If a refactor breaks a mock-heavy test but the feature still works, the test was wrong, not the refactor.
 
 ## Constraints
 
@@ -90,6 +126,7 @@ Own the workflow, not every framework-specific testing recipe. Stay Java-first u
 | Confirm the failure is meaningful | Avoid false-red tests that fail for the wrong reason |
 | Choose the narrowest test that covers the behavior | Keeps feedback fast and failure diagnosis clear |
 | Reassess refactoring after green | Preserves the real red-green-refactor loop |
+| Keep tests self-contained and readable (DAMP over DRY) | Duplication in tests is acceptable when it makes each test independently understandable; a reader should grasp a test without chasing shared helpers |
 
 ### MUST NOT DO
 
@@ -97,6 +134,17 @@ Own the workflow, not every framework-specific testing recipe. Stay Java-first u
 - Do not use `Thread.sleep()` to wait for async behavior.
 - Do not let specialist testing examples bloat this workflow skill; route out to the owning skill.
 - Do not treat full integration tests as the default starting point for every feature.
+
+## Common Rationalizations
+
+| Rationalization | Reality |
+|----------------|---------|
+| "I'll test it all at the end" | Bugs compound; late testing finds symptoms, not root causes, and the cost to fix grows with every layer built on top |
+| "This code is too simple to test" | Simple code grows complex. The test documents intent and catches regressions when the next person changes it |
+| "Writing tests slows me down" | Writing tests slows you down today; debugging untested code slows the whole team down next week |
+| "I'll just manually verify it" | Manual verification is non-repeatable, invisible to CI, and forgotten after the first deploy |
+| "Mocks make this test easy" | Mocks make the test easy to write but hard to trust — a passing mock test does not prove the system works |
+| "The integration test covers this already" | Integration tests are slow and failures are hard to diagnose; a fast unit test pinpoints the broken behavior |
 
 ## Gotchas
 
