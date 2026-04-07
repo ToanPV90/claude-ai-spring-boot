@@ -151,6 +151,7 @@ try {
 
     const nextManagedFiles = [
       ...listFilesRecursive(path.join(templateClaudeDir, 'agents')).map(file => path.join('agents', file)),
+      ...listFilesRecursive(path.join(templateClaudeDir, 'commands')).map(file => path.join('commands', file)),
       ...listFilesRecursive(path.join(templateClaudeDir, 'skills')).map(file => path.join('skills', file))
     ].sort();
 
@@ -161,6 +162,9 @@ try {
 
     syncDir(path.join(templateClaudeDir, 'agents'), path.join(targetClaudeDir, 'agents'));
     console.log('  ↻ .claude/agents/ (refreshed managed agents)');
+
+    syncDir(path.join(templateClaudeDir, 'commands'), path.join(targetClaudeDir, 'commands'));
+    console.log('  ↻ .claude/commands/ (refreshed managed commands)');
 
     syncDir(path.join(templateClaudeDir, 'skills'), path.join(targetClaudeDir, 'skills'));
     console.log('  ↻ .claude/skills/ (refreshed managed skills)');
@@ -214,6 +218,7 @@ try {
       path.join(targetDir, '.claude', managedManifestName),
       [
         ...listFilesRecursive(path.join(templateDir, '.claude', 'agents')).map(file => path.join('agents', file)),
+        ...listFilesRecursive(path.join(templateDir, '.claude', 'commands')).map(file => path.join('commands', file)),
         ...listFilesRecursive(path.join(templateDir, '.claude', 'skills')).map(file => path.join('skills', file))
       ].sort()
     );
