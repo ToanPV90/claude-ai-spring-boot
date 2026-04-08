@@ -9,7 +9,8 @@
   },
   "files": [
     "bin/",
-    "template/"
+    "template/",
+    "install-manifest.json"
   ],
   "scripts": {
     "verify:skills": "node scripts/verify-skills.js"

@@ -63,6 +63,7 @@ This skill is the framework-neutral reviewer for recurring backend failure modes
 | Idempotency, retries, duplicate protection, and background work | `references/idempotency-retries-and-background-work.md` | Reviewing duplicate submissions, retry safety, async follow-up work, or multi-step mutation flows |
 | External dependencies, timeouts, fallback, and failure containment | `references/dependency-calls-and-failure-containment.md` | Reviewing external API/database/cache interactions that can hang, amplify retries, or fail opaquely |
 | Cleanup, retention, observability, and state transitions over time | `references/lifecycle-and-operations.md` | Reviewing cleanup jobs, explicit states, expiration, operator visibility, and production survivability |
+| Error handling, pagination, caching, rate limiting, async, connection pools | `references/common-backend-patterns.md` | Reviewing recurring backend patterns: exception hierarchy, bounded reads, cache strategy, pool sizing, `@Async` safety, API versioning |
 
 ## Shared Review Contract
 
@@ -184,3 +185,4 @@ Better: attachment.storage_provider = "s3"
 - `references/idempotency-retries-and-background-work.md` for duplicate protection, async work, and retry-safe mutation flows
 - `references/dependency-calls-and-failure-containment.md` for external call safety, timeouts, backoff, and graceful degradation
 - `references/lifecycle-and-operations.md` for state transitions, cleanup, expiration, observability, and operator safety
+- `references/common-backend-patterns.md` for error handling, pagination, caching, rate limiting, async safety, connection pools, and API versioning

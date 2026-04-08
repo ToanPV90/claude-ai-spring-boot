@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "modes": {
+    "light": {
+      "description": "Core skills for any Spring Boot project",
+      "skills": [
+        "api-contract-review",
+        "backend-practices-review",
+        "clean-code",
+        "debugging-and-error-recovery",
+        "design-patterns",
+        "java-architect",
+        "java-code-review",
+        "jpa-master",
+        "logging-master",
+        "maven-master",
+        "planning-and-task-breakdown",
+        "security-and-hardening",
+        "spring-boot-engineer",
+        "spring-boot-master",
+        "tdd-guide"
+      ],
+      "agents": [
+        "code-reviewer",
+        "database-engineer",
+        "java-architect",
+        "spring-boot-engineer",
+        "test-automator"
+      ]
+    },
+    "full": {
+      "description": "All skills including specialist/niche technologies",
+      "skills": "__all__",
+      "agents": "__all__"
+    }
+  },
+  "always_include": {
+    "commands": "__all__",
+    "root_files": ["CLAUDE.md", "AGENTS.md", "pom.xml"],
+    "claude_files": ["settings.local.json"]
+  }
+}

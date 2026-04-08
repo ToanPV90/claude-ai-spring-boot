@@ -67,6 +67,47 @@ function validateSkill(relativePath, baseDir, errors, warnings) {
   }
 }
 
+function validateManifest(errors, warnings) {
+  const manifestPath = path.join(rootDir, 'install-manifest.json');
+  if (!fs.existsSync(manifestPath)) {
+    errors.push('install-manifest.json not found at project root');
+    return;
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const lightSkills = manifest.modes.light.skills;
+  const lightAgents = manifest.modes.light.agents;
+
+  // All listed light skills must exist in template
+  const existingSkills = fs.readdirSync(templateSkillsDir, { withFileTypes: true })
+    .filter(e => e.isDirectory())
+    .map(e => e.name);
+
+  for (const skill of lightSkills) {
+    if (!existingSkills.includes(skill)) {
+      errors.push(`Manifest references non-existent skill: ${skill}`);
+    }
+  }
+
+  // All listed light agents must exist in template
+  const templateAgentsDir = path.join(rootDir, 'template', '.claude', 'agents');
+  const existingAgents = fs.readdirSync(templateAgentsDir, { withFileTypes: true })
+    .filter(e => e.isFile())
+    .map(e => e.name.replace(/\.md$/, ''));
+
+  for (const agent of lightAgents) {
+    if (!existingAgents.includes(agent)) {
+      errors.push(`Manifest references non-existent agent: ${agent}`);
+    }
+  }
+
+  // Warn about skills not in light (they are full-only)
+  const fullOnlySkills = existingSkills.filter(s => !lightSkills.includes(s));
+  if (fullOnlySkills.length > 0) {
+    warnings.push(`${fullOnlySkills.length} full-only skills: ${fullOnlySkills.join(', ')}`);
+  }
+}
+
 function main() {
   const errors = [];
   const warnings = [];
@@ -134,6 +175,9 @@ function main() {
     }
     commandCount = rootCmds.length;
   }
+
+  // Validate install manifest
+  validateManifest(errors, warnings);
 
   if (warnings.length > 0) {
     console.warn('Skill verification warnings:\n');
