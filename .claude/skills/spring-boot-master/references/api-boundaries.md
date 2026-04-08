@@ -35,3 +35,5 @@ If using MapStruct, keep mappers focused and obvious.
 
 For full HTTP verb decision logic, versioning strategy comparisons, backward compatibility review, or release-readiness checks,
 route to `api-contract-review`.
+
+For detailed DTO-entity mapping patterns including MapStruct and record factory methods, see `mapping.md`.

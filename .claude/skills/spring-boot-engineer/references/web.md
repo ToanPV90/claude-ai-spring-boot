@@ -198,6 +198,37 @@ record ValidationErrorResponse(
 ) {}
 ```
 
+### ProblemDetail Alternative (RFC 7807)
+
+Spring Boot 3.x supports `ProblemDetail` natively. Prefer this over custom error records when the API consumers expect RFC 7807:
+
+```java
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ProblemDetail handleNotFound(ResourceNotFoundException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setTitle("Resource Not Found");
+        problem.setProperty("resourceType", ex.getResourceType());
+        problem.setProperty("resourceId", ex.getResourceId());
+        return problem;
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Validation failed");
+        problem.setTitle("Validation Error");
+        var errors = ex.getBindingResult().getFieldErrors().stream()
+            .map(e -> Map.of("field", e.getField(), "message", e.getDefaultMessage(),
+                             "rejected", String.valueOf(e.getRejectedValue())))
+            .toList();
+        problem.setProperty("errors", errors);
+        return problem;
+    }
+}
+```
+
 Treat the catch-all `Exception.class` handler as a last-resort safety net. Keep more specific infrastructure, validation, and security exceptions on narrower handlers when the API needs differentiated behavior.
 
 ## Custom Validation
@@ -277,6 +308,33 @@ public class ExternalApiService {
 
 Retry only on transient failures such as timeouts or 5xx-style upstream unavailability.
 Do not blindly retry all 4xx responses or every exception type.
+
+## RestClient for External APIs (Imperative)
+
+Prefer `RestClient` over `WebClient` when the calling code is imperative (non-reactive):
+
+```java
+@Service
+public class NotificationService {
+    private final RestClient restClient;
+
+    public NotificationService(RestClient.Builder builder, NotificationProperties props) {
+        this.restClient = builder.baseUrl(props.baseUrl()).build();
+    }
+
+    public void sendNotification(Notification notification) {
+        restClient.post()
+            .uri("/notifications")
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(notification)
+            .retrieve()
+            .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+                throw new NotificationFailedException("Client error: " + response.getStatusCode());
+            })
+            .toBodilessEntity();
+    }
+}
+```
 
 ## CORS Configuration
 

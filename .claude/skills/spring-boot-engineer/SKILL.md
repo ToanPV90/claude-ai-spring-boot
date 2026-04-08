@@ -49,11 +49,12 @@ Implementation guide for turning a settled Spring Boot design into production-re
 
 | Topic | Reference | Load When |
 |------|-----------|-----------|
-| Controllers, validation, exception handling, WebClient | `references/web.md` | Building HTTP endpoints, request/response flow, or application-facing integrations inside an application module |
+| Controllers, validation, exception handling, RestClient, WebClient | `references/web.md` | Building HTTP endpoints, request/response flow, ProblemDetail errors, or application-facing integrations inside an application module |
 | Repositories, transactions, projections, JPA defaults | `references/data.md` | Implementing Spring Data access after the data model is already chosen |
 | Security 6, OAuth2/JWT, method security | `references/security.md` | Wiring authentication, authorization, and filter-chain behavior |
 | Spring Cloud, Config, Discovery, Gateway, resilience | `references/cloud.md` | Adding cloud/runtime wiring after the service shape is already decided |
 | Slice tests, integration tests, Testcontainers, WebTestClient | `references/testing.md` | Writing or updating tests around Spring Boot implementation work |
+| Spring Boot 4 migration, Jackson 3, JSpecify, RestTestClient, built-in resilience | `references/spring-boot-4.md` | Working with Spring Boot 4.x, migrating from 3.x, or adopting `@ImportHttpServices`, `@Retryable`, `@ConcurrencyLimit`, or virtual threads |
 
 ## Symptom Triage
 
@@ -82,6 +83,8 @@ Implementation guide for turning a settled Spring Boot design into production-re
 | Return API-safe failures | `ProblemDetail` or stable error DTO via advice | Exposing stack traces or entity internals |
 | Add reads/writes with transactions | Service owns `@Transactional` boundary | Transactions in controllers |
 | Add health/runtime support | Actuator + focused config | Hand-rolled health endpoints |
+| Add a new dependency | Check `./mvnw dependency:tree` first | Blindly adding libraries already provided transitively |
+| Call an external HTTP API (imperative) | `RestClient` | `WebClient` in non-reactive code |
 
 ## Constraints
 
@@ -160,3 +163,4 @@ public class ProductServiceImpl implements ProductService {
 - `references/security.md` for Security 6 and OAuth2/JWT wiring
 - `references/cloud.md` for Actuator, Spring Cloud, and resilience setup
 - `references/testing.md` for unit, slice, integration, and reactive test patterns
+- `references/spring-boot-4.md` for Spring Boot 4 migration, Jackson 3, JSpecify, RestTestClient, and built-in resilience

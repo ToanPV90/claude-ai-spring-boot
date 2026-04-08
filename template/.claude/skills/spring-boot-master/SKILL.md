@@ -49,6 +49,7 @@ Decision guide for organizing Spring Boot code into clear layers and boundaries 
 |------|-----------|-----------|
 | Package layout, layer ownership, controller/service/repository boundaries | `references/layers.md` | Deciding where code belongs inside a module and which layer should own a responsibility |
 | DTOs, mapping, validation, and API shapes | `references/api-boundaries.md` | Designing request/response models and validation flow |
+| DTO-entity mapping, MapStruct, record factory methods | `references/mapping.md` | Setting up MapStruct, designing mapping layers, or choosing between mapping approaches |
 | Exceptions, error responses, logging boundaries | `references/error-handling.md` | Shaping `@RestControllerAdvice`, domain exceptions, and API-safe failures |
 | Configuration properties, profiles, annotations, testing slices | `references/configuration-and-testing.md` | Binding config, environment separation, and choosing slice vs integration tests |
 | Failure modes and scope boundaries | `references/gotchas.md` | Avoiding entity leakage, service-interface cargo culting, and layer confusion |
@@ -172,4 +173,5 @@ public record JwtProperties(String secret, Duration expiration) {
 - `references/api-boundaries.md` for DTOs, validation, and mapping rules
 - `references/error-handling.md` for domain exceptions, advice classes, and API-safe failures
 - `references/configuration-and-testing.md` for config binding, profiles, annotations, and testing defaults
+- `references/mapping.md` for DTO-entity mapping, MapStruct, and record factory methods
 - `references/gotchas.md` for layering failure modes and scope boundaries
