@@ -60,14 +60,43 @@ Own the workflow, not every framework-specific testing recipe. Stay Java-first u
 | Complex persistence/query behavior is the risk | Start with `@DataJpaTest` or route to `jpa-master` |
 | Async Kafka/Redis behavior is the risk | Keep the workflow here, but load the specialist testing reference |
 
+## Anti-Pattern: Horizontal Slicing
+
+**DO NOT write all tests first, then all implementation.** This treats RED as "write all tests" and GREEN as "write all code."
+
+Bulk-written tests test *imagined* behavior, not *actual* behavior. They test shape (data structures, signatures) instead of what the system does. They become insensitive to real changes — passing when behavior breaks, failing when behavior is fine.
+
+```text
+WRONG (horizontal):
+  RED:   test1, test2, test3, test4, test5
+  GREEN: impl1, impl2, impl3, impl4, impl5
+
+RIGHT (vertical):
+  RED→GREEN: test1→impl1
+  RED→GREEN: test2→impl2
+  RED→GREEN: test3→impl3
+```
+
+Each test responds to what you learned from the previous cycle.
+
 ## Red-Green-Refactor Ladder
 
 1. Pick one behavior slice.
-2. Write the smallest test that describes that behavior.
+2. Write the smallest test that describes that behavior through its public interface.
 3. Run it and confirm it fails for the right reason.
 4. Add the minimum production code to go green.
 5. Assess refactoring only after green; skip it if there is no clear value.
 6. Repeat for the next behavior slice.
+
+## Per-Cycle Checklist
+
+Before moving to the next slice, verify:
+
+- [ ] Test describes *what* the system does, not *how* it does it
+- [ ] Test uses only public interfaces — no internal collaborator access
+- [ ] Test would survive an internal refactor without changes
+- [ ] Production code is the minimum needed for this test
+- [ ] No speculative code added for future tests
 
 ## Prove-It Pattern for Bug Fixes
 
