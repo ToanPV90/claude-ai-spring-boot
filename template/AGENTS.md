@@ -22,7 +22,7 @@ Spring Boot 3.x Maven project with TDD workflow, Claude AI integration, and ente
     │   ├── docker-expert.md
     │   ├── kubernetes-specialist.md
     │   └── code-reviewer.md
-└── skills/            # 32 skills across 8 categories
+└── skills/            # 33 skills across 8 categories
         ├── backend-practices-review/ # Cross-cutting backend production-safety review
         ├── spring-boot-master/   # Core Spring Boot structure guidance
         ├── spring-boot-engineer/   # Spring Boot 3.x configs
@@ -48,6 +48,7 @@ Spring Boot 3.x Maven project with TDD workflow, Claude AI integration, and ente
         ├── api-contract-review/    # REST API review
         ├── request-refactor-plan/  # Refactor planning
         ├── audit-codex/            # Cross-audit via Codex
+        ├── grill-me/                 # Stress-test plans and designs
         ├── spec-driven-development/  # Spec before code workflow
         ├── planning-and-task-breakdown/ # Task decomposition and sizing
         ├── incremental-implementation/ # Thin vertical slices
@@ -87,6 +88,7 @@ Spring Boot 3.x Maven project with TDD workflow, Claude AI integration, and ente
 | Refactor planning | `.claude/skills/request-refactor-plan/` | Safe staged refactor plans and rollout steps |
 | Codex audit | `.claude/skills/audit-codex/` | External Codex-based second-opinion review |
 | Security hardening | `.claude/skills/security-and-hardening/` | OWASP, input validation, Spring Security, secrets |
+| Stress-test designs | `.claude/skills/grill-me/` | Interview-style plan pressure testing |
 | Spec before code | `.claude/skills/spec-driven-development/` | Feature specs, assumptions, gated phases |
 | Task breakdown | `.claude/skills/planning-and-task-breakdown/` | Decompose features, sizing, dependency order |
 | Incremental delivery | `.claude/skills/incremental-implementation/` | Vertical slices, scope discipline, feature flags |
