@@ -259,6 +259,20 @@ function substituteProjectNameInTree(dirPath, name) {
   }
 }
 
+function resolveMCPToken() {
+  const envToken = process.env.ALIBABA_MCP_TOKEN;
+  if (envToken) return envToken;
+  return null;
+}
+
+function substituteSettingsToken(filePath, token) {
+  if (!token) return false;
+  const content = fs.readFileSync(filePath, 'utf8');
+  const updated = content.replaceAll('__ALIBABA_MCP_TOKEN__', token);
+  fs.writeFileSync(filePath, updated, 'utf8');
+  return true;
+}
+
 // --- Resolve allowlists from manifest ---
 
 const templateDir = path.join(__dirname, '..', 'template');
@@ -434,7 +448,9 @@ try {
       ...listFilesRecursive(path.join(templateClaudeDir, 'commands'))
         .map(file => path.join('commands', file)),
       ...listFilesFilteredSkills(path.join(templateClaudeDir, 'skills'), effectiveSkillAllowlist)
-        .map(file => path.join('skills', file))
+        .map(file => path.join('skills', file)),
+      ...listFilesRecursive(path.join(templateClaudeDir, 'hooks'))
+        .map(file => path.join('hooks', file))
     ].sort();
 
     // Remove stale files from previous install
@@ -453,6 +469,10 @@ try {
     // Sync skills (filtered)
     syncDirFiltered(path.join(templateClaudeDir, 'skills'), path.join(targetClaudeDir, 'skills'), effectiveSkillAllowlist);
     console.log(`  ↻ .claude/skills/ (${effectiveSkillAllowlist.length} skills)`);
+
+    // Sync hooks (always all)
+    syncDir(path.join(templateClaudeDir, 'hooks'), path.join(targetClaudeDir, 'hooks'));
+    console.log('  ↻ .claude/hooks/ (refreshed managed hooks)');
 
     // Write manifest
     writeManagedManifest(manifestPath, effectiveMode, nextManagedFiles);
