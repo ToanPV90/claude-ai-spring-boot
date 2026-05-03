@@ -9,6 +9,7 @@ const path = require('path');
 
 const args = process.argv.slice(2);
 const isFull = args.includes('--full');
+const withAlibabaCheck = args.includes('--with-alibaba-check');
 const positionalArgs = args.filter(a => !a.startsWith('--'));
 const arg = positionalArgs[0];
 
