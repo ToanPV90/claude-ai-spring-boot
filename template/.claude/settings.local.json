@@ -66,6 +66,18 @@
         ]
       },
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "A git commit is about to run. List staged Java files with: git diff --cached --name-only --diff-filter=ACMR | grep -E '\\.java$'. If the result is empty, return {\"ok\": true, \"notes\": \"No Java files staged\"} immediately without further checks. Otherwise, for each staged Java file: read the file content and call mcp__alibaba-java-guidelines__review_code_snippet on it. Aggregate all findings (rule IDs + severity + file:line). Return {\"ok\": false, \"reason\": \"Alibaba violations: [summary]\"} if any BLOCKER/CRITICAL violations are found; otherwise return {\"ok\": true, \"notes\": \"[summary or 'No violations']\"}. The commit input is: $ARGUMENTS.",
+            "if": "Bash(git commit*)",
+            "timeout": 90,
+            "statusMessage": "Reviewing staged Java files against Alibaba Java guidelines..."
+          }
+        ]
+      },
+      {
         "matcher": "Write",
         "hooks": [
           {

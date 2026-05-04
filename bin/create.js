@@ -483,12 +483,21 @@ try {
     }
 
     // Settings
+    const settingsPath = path.join(targetClaudeDir, 'settings.local.json');
     const addedSettings = copyIfAbsent(
       path.join(templateClaudeDir, 'settings.local.json'),
-      path.join(targetClaudeDir, 'settings.local.json')
+      settingsPath
     );
-    if (addedSettings) console.log('  + .claude/settings.local.json');
-    else console.log('  ~ .claude/settings.local.json (preserved existing local settings)');
+    if (addedSettings) {
+      const token = resolveMCPToken();
+      if (token && substituteSettingsToken(settingsPath, token)) {
+        console.log('  + .claude/settings.local.json (MCP token resolved from $ALIBABA_MCP_TOKEN)');
+      } else {
+        console.log('  + .claude/settings.local.json (set $ALIBABA_MCP_TOKEN env var to enable MCP code review)');
+      }
+    } else {
+      console.log('  ~ .claude/settings.local.json (preserved existing local settings)');
+    }
 
     // Root docs
     const addedClaude = copyIfAbsent(path.join(templateDir, 'CLAUDE.md'), path.join(targetDir, 'CLAUDE.md'));
@@ -556,10 +565,17 @@ try {
     fs.mkdirSync(targetClaudeDir, { recursive: true });
 
     // Settings
+    const settingsPath = path.join(targetClaudeDir, 'settings.local.json');
     fs.copyFileSync(
       path.join(templateClaudeDir, 'settings.local.json'),
-      path.join(targetClaudeDir, 'settings.local.json')
+      settingsPath
     );
+    const token = resolveMCPToken();
+    if (token && substituteSettingsToken(settingsPath, token)) {
+      console.log('  + .claude/settings.local.json (MCP token resolved from $ALIBABA_MCP_TOKEN)');
+    } else {
+      console.log('  + .claude/settings.local.json (set $ALIBABA_MCP_TOKEN env var to enable MCP code review)');
+    }
 
     // Commands — always all
     copyDir(
