@@ -28,16 +28,14 @@
     }
   },
   "hooks": {
-    "PostToolUse": [
+    "Stop": [
       {
-        "matcher": "Edit|Write",
-        "if": "**/*.java",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "A Java file was just edited or written. The file path is in $ARGUMENTS. Read the Java file and call the mcp__alibaba-java-guidelines__review_code_snippet tool with the file's code content. Summarize any Alibaba Java coding guideline violations found - list the specific rule IDs and issues concisely. Return {\"ok\": true, \"notes\": \"[findings summary]\"}. If no violations are found, return {\"ok\": true, \"notes\": \"No Alibaba Java violations found\"}.",
-            "timeout": 45,
-            "statusMessage": "Checking Alibaba Java coding conventions..."
+            "prompt": "Session has just ended. Run an Alibaba Java guidelines review on the work you just produced and return a SINGLE JSON OBJECT as your only output (no markdown, no prose outside the JSON). Steps: (1) Run `git diff --name-only --diff-filter=ACMR HEAD` and `git diff --cached --name-only --diff-filter=ACMR` to collect changed files, then filter to `*.java` only. (2) If the filtered list is empty, return exactly: {\"continue\": true, \"systemMessage\": \"[alibaba-review] skipped: no Java changes\"}. (3) Otherwise, for each changed Java file, read its current content and call mcp__alibaba-java-guidelines__review_code_snippet. (4) Aggregate findings grouped by severity (BLOCKER/CRITICAL/MAJOR/MINOR) with rule ID + file:line + one-line reason. (5) Return: {\"continue\": true, \"systemMessage\": \"<concise advisory report as a single string; include severity counts and any BLOCKER/CRITICAL details; if any BLOCKER/CRITICAL exist, append: ⚠️ Recommend fixing BLOCKER/CRITICAL findings before committing.>\"}. This is ADVISORY ONLY — never set decision=block, never modify code, never re-enter the implementation loop. The output MUST be valid JSON parseable by JSON.parse, with no leading/trailing text.",
+            "timeout": 120,
+            "statusMessage": "Running Alibaba Java guidelines review on session diff..."
           }
         ]
       }

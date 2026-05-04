@@ -597,6 +597,15 @@ try {
       skillAllowlist
     );
 
+    // Hooks — always all (preserve executable bit on .sh)
+    const targetHooksDir = path.join(targetClaudeDir, 'hooks');
+    copyDir(path.join(templateClaudeDir, 'hooks'), targetHooksDir);
+    for (const entry of fs.readdirSync(targetHooksDir, { withFileTypes: true })) {
+      if (entry.isFile() && entry.name.endsWith('.sh')) {
+        fs.chmodSync(path.join(targetHooksDir, entry.name), 0o755);
+      }
+    }
+
     // Substitute project name
     substituteProjectNameInTree(targetDir, projectName);
 
@@ -613,7 +622,9 @@ try {
       ...listFilesRecursive(path.join(templateClaudeDir, 'commands'))
         .map(file => path.join('commands', file)),
       ...listFilesFilteredSkills(path.join(templateClaudeDir, 'skills'), skillAllowlist)
-        .map(file => path.join('skills', file))
+        .map(file => path.join('skills', file)),
+      ...listFilesRecursive(path.join(templateClaudeDir, 'hooks'))
+        .map(file => path.join('hooks', file))
     ].sort();
 
     writeManagedManifest(
